@@ -1,0 +1,22 @@
+{
+  "name": "@openclaw/avatar-overlay",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/main/main/main.js",
+  "scripts": {
+    "dev": "tsc --build && rolldown --config rolldown.config.mjs && node scripts/copy-renderer-html.mjs && electron dist/main/main/main.js",
+    "build": "tsc --build && rolldown --config rolldown.config.mjs && node scripts/copy-renderer-html.mjs",
+    "start": "electron dist/main/main/main.js"
+  },
+  "dependencies": {
+    "three": "~0.170.0",
+    "@pixiv/three-vrm": "~3.3.0"
+  },
+  "devDependencies": {
+    "electron": "~33.0.0",
+    "electron-builder": "~25.1.0",
+    "rolldown": "1.0.0-rc.2",
+    "typescript": "^5.9.3",
+    "@types/three": "~0.170.0"
+  }
+}

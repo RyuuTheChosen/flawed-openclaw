@@ -255,6 +255,7 @@
       "@whiskeysockets/baileys",
       "authenticate-pam",
       "esbuild",
+      "electron",
       "node-llama-cpp",
       "protobufjs",
       "sharp"
