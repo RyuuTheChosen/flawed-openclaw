@@ -1,5 +1,7 @@
 import { app, ipcMain } from "electron";
+import * as fs from "node:fs";
 import * as path from "node:path";
+import * as os from "node:os";
 import { fileURLToPath } from "node:url";
 import { createOverlayWindow } from "./window.js";
 import { createTray } from "./tray.js";
@@ -24,6 +26,23 @@ function getCliArg(prefix: string): string | undefined {
 const cliGatewayUrl = getCliArg("--gateway-url=");
 const cliVrmPath = getCliArg("--vrm-path=");
 const cliAgentConfigs = getCliArg("--agent-configs=");
+const cliAuthToken = getCliArg("--auth-token=");
+
+// Resolve auth token: CLI arg > env var > openclaw.json
+function resolveAuthToken(): string | undefined {
+	if (cliAuthToken) return cliAuthToken;
+	if (process.env.OPENCLAW_GATEWAY_TOKEN) return process.env.OPENCLAW_GATEWAY_TOKEN;
+	try {
+		const configPath = path.join(os.homedir(), ".openclaw", "openclaw.json");
+		const raw = fs.readFileSync(configPath, "utf-8");
+		const config = JSON.parse(raw);
+		const token = config?.gateway?.auth?.token;
+		if (typeof token === "string" && token.length > 0) return token;
+	} catch {
+		// No config or unreadable
+	}
+	return undefined;
+}
 
 // Parse per-agent VRM configs if provided (with prototype pollution protection)
 let agentConfigs: Record<string, { vrmPath?: string }> | undefined;
@@ -82,11 +101,14 @@ app.whenReady().then(() => {
 
 	// Connect to gateway WebSocket for agent event streaming
 	const gatewayUrl = cliGatewayUrl ?? GATEWAY_URL_DEFAULT;
+	const authToken = resolveAuthToken();
+	console.log(`avatar-overlay: connecting to ${gatewayUrl} (auth=${authToken ? "token" : "none"})`);
 	const gw = createGatewayClient(
 		gatewayUrl,
 		(state) => win.webContents.send(IPC.AGENT_STATE, state),
 		(vrmPath) => win.webContents.send(IPC.VRM_MODEL_CHANGED, vrmPath),
 		agentConfigs,
+		authToken,
 	);
 
 	// Clean up resources on quit

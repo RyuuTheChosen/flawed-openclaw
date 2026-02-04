@@ -34,6 +34,8 @@ export function createAvatarOverlayService(api: OpenClawPluginApi) {
 		const config = api.pluginConfig as Record<string, unknown> | undefined;
 		const gatewayUrl = (config?.gatewayUrl as string) ?? "ws://127.0.0.1:18789";
 		const vrmPath = config?.vrmPath as string | undefined;
+		const authToken = (config?.authToken as string | undefined)
+			?? process.env.OPENCLAW_GATEWAY_TOKEN;
 
 		// Serialize per-agent VRM configs so Electron can read them
 		const agents = config?.agents as Record<string, { vrmPath?: string }> | undefined;
@@ -44,6 +46,7 @@ export function createAvatarOverlayService(api: OpenClawPluginApi) {
 			gatewayUrl,
 			vrmPath,
 			agentConfigs,
+			authToken,
 		});
 
 		child = spawn(electronPath, args, {

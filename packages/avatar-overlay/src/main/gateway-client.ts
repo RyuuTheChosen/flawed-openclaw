@@ -39,6 +39,7 @@ export function createGatewayClient(
 	onStateChange: (state: AgentState) => void,
 	onModelSwitch: (vrmPath: string) => void,
 	agentConfigs?: Record<string, { vrmPath?: string }>,
+	authToken?: string,
 ): { destroy: () => void } {
 	let ws: WebSocket | null = null;
 	let destroyed = false;
@@ -105,8 +106,10 @@ export function createGatewayClient(
 			if (parsed?.type === "res") {
 				const res = parsed as ResponseFrame;
 				if (res.ok) {
-					// Connected successfully, reset backoff
+					console.log("avatar-overlay: gateway connected successfully");
 					backoffMs = GATEWAY_RECONNECT_BASE_MS;
+				} else {
+					console.error("avatar-overlay: gateway connect rejected:", res.error?.message ?? "unknown");
 				}
 			}
 		} catch {
@@ -140,7 +143,7 @@ export function createGatewayClient(
 				caps: [],
 				role: "operator",
 				scopes: ["operator.admin"],
-				auth: {},
+				auth: authToken ? { token: authToken } : {},
 			},
 		};
 
@@ -160,6 +163,7 @@ export function createGatewayClient(
 		ws = new WebSocket(gatewayUrl, { maxPayload: 25 * 1024 * 1024 });
 
 		ws.on("open", () => {
+			console.log("avatar-overlay: ws open, sending connect frame");
 			queueConnect();
 		});
 
@@ -168,7 +172,8 @@ export function createGatewayClient(
 			handleMessage(raw);
 		});
 
-		ws.on("close", () => {
+		ws.on("close", (code, reason) => {
+			console.log(`avatar-overlay: ws closed (code=${code}, reason=${reason?.toString() ?? ""})`);
 			ws = null;
 			scheduleReconnect();
 		});

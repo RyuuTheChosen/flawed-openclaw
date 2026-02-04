@@ -27,6 +27,7 @@ export function buildElectronArgs(opts: {
 	gatewayUrl?: string;
 	vrmPath?: string;
 	agentConfigs?: string;
+	authToken?: string;
 }): string[] {
 	const args = [opts.mainEntry];
 	if (opts.gatewayUrl) {
@@ -54,6 +55,9 @@ export function buildElectronArgs(opts: {
 			}
 		}
 		args.push(`--agent-configs=${opts.agentConfigs}`);
+	}
+	if (opts.authToken) {
+		args.push(`--auth-token=${opts.authToken}`);
 	}
 	return args;
 }
