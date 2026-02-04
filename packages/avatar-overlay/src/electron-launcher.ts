@@ -1,6 +1,8 @@
 import * as path from "node:path";
 import { createRequire } from "node:module";
 
+const WS_URL_RE = /^wss?:\/\//;
+
 /**
  * Resolve the path to the Electron binary from the plugin's own node_modules.
  */
@@ -28,12 +30,29 @@ export function buildElectronArgs(opts: {
 }): string[] {
 	const args = [opts.mainEntry];
 	if (opts.gatewayUrl) {
+		if (!WS_URL_RE.test(opts.gatewayUrl)) {
+			throw new Error(`Invalid gateway URL: must start with ws:// or wss://`);
+		}
 		args.push(`--gateway-url=${opts.gatewayUrl}`);
 	}
 	if (opts.vrmPath) {
-		args.push(`--vrm-path=${opts.vrmPath}`);
+		const resolved = path.resolve(opts.vrmPath);
+		if (!path.isAbsolute(resolved) || resolved.includes("..")) {
+			throw new Error(`Invalid VRM path: must be absolute with no '..' segments`);
+		}
+		args.push(`--vrm-path=${resolved}`);
 	}
 	if (opts.agentConfigs) {
+		// Validate JSON structure and reject prototype pollution keys
+		const parsed = JSON.parse(opts.agentConfigs);
+		if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+			throw new Error("Invalid agentConfigs: must be a JSON object");
+		}
+		for (const key of Object.keys(parsed)) {
+			if (key === "__proto__" || key === "constructor" || key === "prototype") {
+				throw new Error(`Invalid agentConfigs: forbidden key '${key}'`);
+			}
+		}
 		args.push(`--agent-configs=${opts.agentConfigs}`);
 	}
 	return args;

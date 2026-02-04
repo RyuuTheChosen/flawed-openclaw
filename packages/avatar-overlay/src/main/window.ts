@@ -84,6 +84,17 @@ function getDefaultPosition(): { x: number; y: number } {
 	};
 }
 
+export async function showVrmPicker(win: BrowserWindow): Promise<void> {
+	const result = await dialog.showOpenDialog(win, {
+		title: "Select VRM Model",
+		filters: [{ name: "VRM Models", extensions: ["vrm"] }],
+		properties: ["openFile"],
+	});
+	if (!result.canceled && result.filePaths.length > 0) {
+		win.webContents.send(IPC.VRM_MODEL_CHANGED, result.filePaths[0]);
+	}
+}
+
 export function createOverlayWindow(): BrowserWindow {
 	const saved = loadPosition();
 	const pos = saved ?? getDefaultPosition();
@@ -102,8 +113,6 @@ export function createOverlayWindow(): BrowserWindow {
 		webPreferences: {
 			contextIsolation: true,
 			nodeIntegration: false,
-			sandbox: false,
-			webSecurity: false,
 			preload: path.join(__dirname, "..", "..", "preload.cjs"),
 		},
 	});
@@ -116,6 +125,12 @@ export function createOverlayWindow(): BrowserWindow {
 		savePosition(x, y);
 	});
 
+	// Clean up pending save timeouts on close
+	win.on("close", () => {
+		if (saveTimeout) clearTimeout(saveTimeout);
+		if (zoomSaveTimeout) clearTimeout(zoomSaveTimeout);
+	});
+
 	// Clean up previous IPC handlers (safe for window re-creation)
 	ipcMain.removeAllListeners(IPC.SET_IGNORE_MOUSE);
 	ipcMain.removeAllListeners(IPC.DRAG_MOVE);
@@ -124,12 +139,15 @@ export function createOverlayWindow(): BrowserWindow {
 	ipcMain.removeAllListeners(IPC.SHOW_CONTEXT_MENU);
 
 	// IPC: click-through toggle
-	ipcMain.on(IPC.SET_IGNORE_MOUSE, (_event, ignore: boolean) => {
+	ipcMain.on(IPC.SET_IGNORE_MOUSE, (_event, ignore: unknown) => {
+		if (typeof ignore !== "boolean") return;
 		win.setIgnoreMouseEvents(ignore, { forward: true });
 	});
 
 	// IPC: window drag
-	ipcMain.on(IPC.DRAG_MOVE, (_event, deltaX: number, deltaY: number) => {
+	ipcMain.on(IPC.DRAG_MOVE, (_event, deltaX: unknown, deltaY: unknown) => {
+		if (typeof deltaX !== "number" || typeof deltaY !== "number") return;
+		if (!Number.isFinite(deltaX) || !Number.isFinite(deltaY)) return;
 		const [x, y] = win.getPosition();
 		win.setPosition(x + deltaX, y + deltaY);
 	});
@@ -139,8 +157,8 @@ export function createOverlayWindow(): BrowserWindow {
 		return loadZoom();
 	});
 
-	ipcMain.on(IPC.SAVE_CAMERA_ZOOM, (_event, zoom: number) => {
-		if (typeof zoom === "number") {
+	ipcMain.on(IPC.SAVE_CAMERA_ZOOM, (_event, zoom: unknown) => {
+		if (typeof zoom === "number" && Number.isFinite(zoom)) {
 			const clamped = Math.max(CAMERA_ZOOM_MIN, Math.min(CAMERA_ZOOM_MAX, zoom));
 			saveZoom(clamped);
 		}
@@ -151,15 +169,8 @@ export function createOverlayWindow(): BrowserWindow {
 		const menu = Menu.buildFromTemplate([
 			{
 				label: "Change Avatar Model\u2026",
-				async click() {
-					const result = await dialog.showOpenDialog(win, {
-						title: "Select VRM Model",
-						filters: [{ name: "VRM Models", extensions: ["vrm"] }],
-						properties: ["openFile"],
-					});
-					if (!result.canceled && result.filePaths.length > 0) {
-						win.webContents.send(IPC.VRM_MODEL_CHANGED, result.filePaths[0]);
-					}
+				click() {
+					showVrmPicker(win);
 				},
 			},
 			{

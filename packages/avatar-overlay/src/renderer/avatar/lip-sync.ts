@@ -6,6 +6,7 @@ const ALL_VISEMES: Viseme[] = ["aa", "ih", "ou", "ee", "oh"];
 const CHAR_DURATION = 0.05; // 50ms per character
 const VISEME_LERP_SPEED = 15; // fast lerp for snappy mouth movement
 const NON_WORD_RE = /[^\w]/;
+const MAX_QUEUE_SIZE = 10_000;
 
 const CHAR_TO_VISEME: Record<string, Viseme> = {
 	a: "aa", á: "aa", à: "aa",
@@ -45,7 +46,12 @@ export function createLipSync(vrm: VRM): LipSync {
 				queue = [];
 				readIndex = 0;
 			}
-			queue.push(...text);
+			const available = MAX_QUEUE_SIZE - (queue.length - readIndex);
+			if (text.length > available) {
+				queue.push(...[...text].slice(0, Math.max(0, available)));
+			} else {
+				queue.push(...text);
+			}
 		},
 
 		stop(): void {

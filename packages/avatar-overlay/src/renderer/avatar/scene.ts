@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { CAMERA_ZOOM_MIN, CAMERA_ZOOM_MAX } from "../../shared/config.js";
+import { CAMERA_ZOOM_MIN, CAMERA_ZOOM_MAX, CAMERA_ZOOM_DEFAULT } from "../../shared/config.js";
 
 export interface AvatarScene {
 	renderer: THREE.WebGLRenderer;
@@ -51,6 +51,7 @@ export function createScene(canvas: HTMLCanvasElement): AvatarScene {
 	});
 
 	function setCameraZoom(zoom: number): number {
+		if (!Number.isFinite(zoom)) zoom = CAMERA_ZOOM_DEFAULT;
 		const clamped = Math.max(CAMERA_ZOOM_MIN, Math.min(CAMERA_ZOOM_MAX, zoom));
 		const t = (clamped - CAMERA_ZOOM_MIN) / (CAMERA_ZOOM_MAX - CAMERA_ZOOM_MIN);
 		const lookAtY = 1.45 + (0.75 - 1.45) * t;

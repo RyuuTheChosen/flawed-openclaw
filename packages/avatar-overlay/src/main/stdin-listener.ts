@@ -20,6 +20,7 @@ export function createStdinListener(handler: (cmd: StdinCommand) => void): () =>
 		try {
 			const parsed = JSON.parse(trimmed);
 			if (typeof parsed?.type === "string") {
+				if (parsed.type === "model-switch" && typeof parsed.vrmPath !== "string") return;
 				handler(parsed as StdinCommand);
 			}
 		} catch {

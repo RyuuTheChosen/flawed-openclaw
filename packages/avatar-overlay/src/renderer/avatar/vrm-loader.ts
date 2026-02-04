@@ -6,6 +6,17 @@ import type { VRM } from "@pixiv/three-vrm";
 const loader = new GLTFLoader();
 loader.register((parser) => new VRMLoaderPlugin(parser));
 
+function validateVrmPath(filePath: string): void {
+	// Normalize and check for directory traversal
+	const normalized = filePath.replace(/\\/g, "/");
+	if (normalized.includes("..")) {
+		throw new Error(`Invalid VRM path: directory traversal not allowed: ${filePath}`);
+	}
+	if (!normalized.toLowerCase().endsWith(".vrm")) {
+		throw new Error(`Invalid VRM path: must have .vrm extension: ${filePath}`);
+	}
+}
+
 function toFileUrl(filePath: string): string {
 	// Convert Windows paths like C:\foo\bar.vrm to file:///C:/foo/bar.vrm
 	const normalized = filePath.replace(/\\/g, "/");
@@ -17,6 +28,7 @@ export async function loadVrmModel(
 	filePath: string,
 	scene: THREE.Scene,
 ): Promise<VRM> {
+	validateVrmPath(filePath);
 	const url = toFileUrl(filePath);
 	const gltf = await loader.loadAsync(url);
 	const vrm = gltf.userData.vrm as VRM;

@@ -2,9 +2,9 @@ import type { VRM } from "@pixiv/three-vrm";
 import { createExpressionController, type Expression } from "./expressions.js";
 import { createLipSync } from "./lip-sync.js";
 
-export type { Expression };
+import type { AgentPhase } from "../../shared/types.js";
 
-export type AgentPhase = "idle" | "thinking" | "speaking" | "working";
+export type { Expression };
 
 export interface Animator {
 	update(delta: number, elapsed: number): void;

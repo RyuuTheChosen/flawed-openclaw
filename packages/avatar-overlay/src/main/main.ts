@@ -25,11 +25,22 @@ const cliGatewayUrl = getCliArg("--gateway-url=");
 const cliVrmPath = getCliArg("--vrm-path=");
 const cliAgentConfigs = getCliArg("--agent-configs=");
 
-// Parse per-agent VRM configs if provided
+// Parse per-agent VRM configs if provided (with prototype pollution protection)
 let agentConfigs: Record<string, { vrmPath?: string }> | undefined;
 if (cliAgentConfigs) {
 	try {
-		agentConfigs = JSON.parse(cliAgentConfigs);
+		const parsed: unknown = JSON.parse(cliAgentConfigs);
+		if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+			const safe: Record<string, { vrmPath?: string }> = Object.create(null);
+			for (const [key, val] of Object.entries(parsed as Record<string, unknown>)) {
+				if (key === "__proto__" || key === "constructor" || key === "prototype") continue;
+				if (typeof val === "object" && val !== null) {
+					const v = val as Record<string, unknown>;
+					safe[key] = { vrmPath: typeof v.vrmPath === "string" ? v.vrmPath : undefined };
+				}
+			}
+			agentConfigs = safe;
+		}
 	} catch {
 		// Ignore malformed JSON
 	}
@@ -52,7 +63,7 @@ app.whenReady().then(() => {
 	});
 
 	// Stdin listener for commands from the plugin service
-	createStdinListener((cmd: StdinCommand) => {
+	const cleanupStdin = createStdinListener((cmd: StdinCommand) => {
 		switch (cmd.type) {
 			case "show":
 				win.show();
@@ -71,7 +82,18 @@ app.whenReady().then(() => {
 
 	// Connect to gateway WebSocket for agent event streaming
 	const gatewayUrl = cliGatewayUrl ?? GATEWAY_URL_DEFAULT;
-	createGatewayClient(gatewayUrl, win, agentConfigs);
+	const gw = createGatewayClient(
+		gatewayUrl,
+		(state) => win.webContents.send(IPC.AGENT_STATE, state),
+		(vrmPath) => win.webContents.send(IPC.VRM_MODEL_CHANGED, vrmPath),
+		agentConfigs,
+	);
+
+	// Clean up resources on quit
+	app.on("before-quit", () => {
+		gw.destroy();
+		cleanupStdin();
+	});
 });
 
 // Keep app alive when all windows are closed (tray stays)

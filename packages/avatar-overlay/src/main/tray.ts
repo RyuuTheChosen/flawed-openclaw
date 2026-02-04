@@ -1,7 +1,7 @@
-import { Tray, Menu, dialog, app, type BrowserWindow } from "electron";
+import { Tray, Menu, app, type BrowserWindow } from "electron";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { IPC } from "../shared/ipc-channels.js";
+import { showVrmPicker } from "./window.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -13,33 +13,23 @@ export function createTray(win: BrowserWindow): Tray {
 	tray = new Tray(iconPath);
 	tray.setToolTip("OpenClaw Avatar");
 
-	let visible = true;
-
 	function rebuildMenu(): void {
 		const menu = Menu.buildFromTemplate([
 			{
-				label: visible ? "Hide Avatar" : "Show Avatar",
+				label: win.isVisible() ? "Hide Avatar" : "Show Avatar",
 				click() {
-					if (visible) {
+					if (win.isVisible()) {
 						win.hide();
 					} else {
 						win.show();
 					}
-					visible = !visible;
 					rebuildMenu();
 				},
 			},
 			{
-				label: "Change Avatar Model…",
-				async click() {
-					const result = await dialog.showOpenDialog(win, {
-						title: "Select VRM Model",
-						filters: [{ name: "VRM Models", extensions: ["vrm"] }],
-						properties: ["openFile"],
-					});
-					if (!result.canceled && result.filePaths.length > 0) {
-						win.webContents.send(IPC.VRM_MODEL_CHANGED, result.filePaths[0]);
-					}
+				label: "Change Avatar Model\u2026",
+				click() {
+					showVrmPicker(win);
 				},
 			},
 			{ type: "separator" },
@@ -56,12 +46,11 @@ export function createTray(win: BrowserWindow): Tray {
 	rebuildMenu();
 
 	tray.on("click", () => {
-		if (visible) {
+		if (win.isVisible()) {
 			win.hide();
 		} else {
 			win.show();
 		}
-		visible = !visible;
 		rebuildMenu();
 	});
 

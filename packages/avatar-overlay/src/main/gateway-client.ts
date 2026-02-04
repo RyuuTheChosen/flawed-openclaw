@@ -1,18 +1,9 @@
 import WebSocket from "ws";
 import { randomUUID } from "node:crypto";
-import type { BrowserWindow } from "electron";
-import { IPC } from "../shared/ipc-channels.js";
 import { GATEWAY_RECONNECT_BASE_MS, GATEWAY_RECONNECT_MAX_MS } from "../shared/config.js";
+import type { AgentState } from "../shared/types.js";
 
 const PROTOCOL_VERSION = 3;
-
-export type AgentPhase = "idle" | "thinking" | "speaking" | "working";
-
-export type AgentState = {
-	phase: AgentPhase;
-	text?: string;
-	agentId?: string;
-};
 
 type AgentEventPayload = {
 	runId: string;
@@ -45,7 +36,8 @@ type ResponseFrame = {
  */
 export function createGatewayClient(
 	gatewayUrl: string,
-	win: BrowserWindow,
+	onStateChange: (state: AgentState) => void,
+	onModelSwitch: (vrmPath: string) => void,
 	agentConfigs?: Record<string, { vrmPath?: string }>,
 ): { destroy: () => void } {
 	let ws: WebSocket | null = null;
@@ -56,11 +48,6 @@ export function createGatewayClient(
 	let connectTimer: ReturnType<typeof setTimeout> | null = null;
 	let currentAgentId: string | null = null;
 
-	function sendToRenderer(state: AgentState): void {
-		if (win.isDestroyed()) return;
-		win.webContents.send(IPC.AGENT_STATE, state);
-	}
-
 	function processAgentEvent(evt: AgentEventPayload): void {
 		const { stream, data, sessionKey } = evt;
 
@@ -68,22 +55,24 @@ export function createGatewayClient(
 		if (sessionKey && sessionKey !== currentAgentId) {
 			currentAgentId = sessionKey;
 			if (agentConfigs?.[sessionKey]?.vrmPath) {
-				win.webContents.send(IPC.VRM_MODEL_CHANGED, agentConfigs[sessionKey].vrmPath);
+				onModelSwitch(agentConfigs[sessionKey].vrmPath!);
 			}
 		}
 
 		if (stream === "lifecycle") {
 			const phase = data?.phase;
 			if (phase === "start") {
-				sendToRenderer({ phase: "thinking", agentId: sessionKey });
+				onStateChange({ phase: "thinking", agentId: sessionKey });
 			} else if (phase === "end" || phase === "error") {
-				sendToRenderer({ phase: "idle", agentId: sessionKey });
+				onStateChange({ phase: "idle", agentId: sessionKey });
 			}
 		} else if (stream === "assistant") {
 			const text = typeof data?.text === "string" ? data.text : undefined;
-			sendToRenderer({ phase: "speaking", text, agentId: sessionKey });
+			onStateChange({ phase: "speaking", text, agentId: sessionKey });
 		} else if (stream === "tool") {
-			sendToRenderer({ phase: "working", agentId: sessionKey });
+			onStateChange({ phase: "working", agentId: sessionKey });
+		} else if (stream === "error") {
+			onStateChange({ phase: "idle", agentId: sessionKey });
 		}
 	}
 
@@ -184,9 +173,8 @@ export function createGatewayClient(
 			scheduleReconnect();
 		});
 
-		ws.on("error", () => {
-			// Error handler required to prevent uncaught exceptions;
-			// the close handler will fire and schedule reconnect.
+		ws.on("error", (err) => {
+			console.error("avatar-overlay: gateway connection error:", err.message);
 		});
 	}
 

@@ -14,6 +14,47 @@ async function boot(): Promise<void> {
 	const canvas = document.getElementById("avatar-canvas") as HTMLCanvasElement;
 	const { renderer, scene, camera, setCameraZoom } = createScene(canvas);
 
+	// Register agent state listener early (before async VRM load)
+	bridge.onAgentState((state) => {
+		if (!animator) return;
+
+		switch (state.phase) {
+			case "thinking":
+				animator.setExpression("surprised");
+				animator.setPhase("thinking");
+				animator.stopLipSync();
+				break;
+			case "speaking":
+				animator.setExpression("happy");
+				animator.setPhase("speaking");
+				if (state.text) animator.feedLipSyncText(state.text);
+				break;
+			case "working":
+				animator.setExpression("relaxed");
+				animator.setPhase("working");
+				animator.stopLipSync();
+				break;
+			case "idle":
+				animator.setExpression("neutral");
+				animator.setPhase("idle");
+				animator.stopLipSync();
+				break;
+		}
+	});
+
+	// Model swap from tray or gateway agent switch
+	bridge.onVrmModelChanged(async (newPath: string) => {
+		if (currentVrm) unloadVrmModel(currentVrm, scene);
+		try {
+			currentVrm = await loadVrmModel(newPath, scene);
+		} catch (err) {
+			console.error("Failed to load VRM model, reverting to default:", err);
+			const defaultPath = await bridge.getVrmPath();
+			currentVrm = await loadVrmModel(defaultPath, scene);
+		}
+		if (animator) animator.setVrm(currentVrm);
+	});
+
 	// Load default VRM
 	const vrmPath = await bridge.getVrmPath();
 	currentVrm = await loadVrmModel(vrmPath, scene);
@@ -74,43 +115,6 @@ async function boot(): Promise<void> {
 	const settingsBtn = document.getElementById("settings-btn")!;
 	settingsBtn.addEventListener("click", () => {
 		bridge.showContextMenu();
-	});
-
-	// Agent state → avatar reactions
-	bridge.onAgentState((state) => {
-		if (!animator) return;
-
-		switch (state.phase) {
-			case "thinking":
-				animator.setExpression("surprised");
-				animator.setPhase("thinking");
-				animator.stopLipSync();
-				break;
-			case "speaking":
-				animator.setExpression("happy");
-				animator.setPhase("speaking");
-				if (state.text) animator.feedLipSyncText(state.text);
-				break;
-			case "working":
-				animator.setExpression("relaxed");
-				animator.setPhase("working");
-				animator.stopLipSync();
-				break;
-			case "idle":
-				animator.setExpression("neutral");
-				animator.setPhase("idle");
-				animator.stopLipSync();
-				break;
-		}
-	});
-
-	// Model swap from tray
-	bridge.onVrmModelChanged(async (newPath: string) => {
-		if (currentVrm) {
-			unloadVrmModel(currentVrm, scene);
-		}
-		currentVrm = await loadVrmModel(newPath, scene);
-		animator!.setVrm(currentVrm);
 	});
 
 	// Animation loop
