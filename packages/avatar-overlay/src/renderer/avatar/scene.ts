@@ -1,9 +1,11 @@
 import * as THREE from "three";
+import { CAMERA_ZOOM_MIN, CAMERA_ZOOM_MAX } from "../../shared/config.js";
 
 export interface AvatarScene {
 	renderer: THREE.WebGLRenderer;
 	scene: THREE.Scene;
 	camera: THREE.PerspectiveCamera;
+	setCameraZoom(zoom: number): number;
 }
 
 export function createScene(canvas: HTMLCanvasElement): AvatarScene {
@@ -22,8 +24,6 @@ export function createScene(canvas: HTMLCanvasElement): AvatarScene {
 		0.1,
 		20.0,
 	);
-	camera.position.set(0, 1.35, 0.8);
-	camera.lookAt(0, 1.35, 0);
 
 	const scene = new THREE.Scene();
 
@@ -50,5 +50,14 @@ export function createScene(canvas: HTMLCanvasElement): AvatarScene {
 		renderer.setSize(w, h);
 	});
 
-	return { renderer, scene, camera };
+	function setCameraZoom(zoom: number): number {
+		const clamped = Math.max(CAMERA_ZOOM_MIN, Math.min(CAMERA_ZOOM_MAX, zoom));
+		const t = (clamped - CAMERA_ZOOM_MIN) / (CAMERA_ZOOM_MAX - CAMERA_ZOOM_MIN);
+		const lookAtY = 1.45 + (0.75 - 1.45) * t;
+		camera.position.set(0, lookAtY, clamped);
+		camera.lookAt(0, lookAtY, 0);
+		return clamped;
+	}
+
+	return { renderer, scene, camera, setCameraZoom };
 }

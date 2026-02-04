@@ -4,4 +4,8 @@ export const IPC = {
 	GET_VRM_PATH: "avatar:get-vrm-path",
 	VRM_MODEL_CHANGED: "avatar:vrm-model-changed",
 	SHOW_CONTEXT_MENU: "avatar:show-context-menu",
+	GET_CAMERA_ZOOM: "avatar:get-camera-zoom",
+	SAVE_CAMERA_ZOOM: "avatar:save-camera-zoom",
+	SET_CAMERA_ZOOM: "avatar:set-camera-zoom",
+	AGENT_STATE: "avatar:agent-state",
 } as const;

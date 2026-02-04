@@ -542,16 +542,25 @@ importers:
       three:
         specifier: ~0.170.0
         version: 0.170.0
+      ws:
+        specifier: ^8.18.0
+        version: 8.19.0
     devDependencies:
       '@types/three':
         specifier: ~0.170.0
         version: 0.170.0
+      '@types/ws':
+        specifier: ^8.5.0
+        version: 8.18.1
       electron:
         specifier: ~33.0.0
         version: 33.0.2
       electron-builder:
         specifier: ~25.1.0
         version: 25.1.8(electron-builder-squirrel-windows@25.1.8)
+      openclaw:
+        specifier: workspace:*
+        version: link:../..
       rolldown:
         specifier: 1.0.0-rc.2
         version: 1.0.0-rc.2

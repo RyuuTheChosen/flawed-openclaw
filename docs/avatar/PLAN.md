@@ -67,6 +67,8 @@ BrowserWindow config:
 - Draggable by clicking on the avatar mesh
 - Click-through on transparent pixels via `setIgnoreMouseEvents` forwarding
 - Persist window position to disk
+- Persist camera zoom level to disk (separate file, separate debounce timer)
+- Context menu with Framing submenu (Head / Upper Body / Full Body presets)
 
 ### `main.ts` — App Lifecycle
 - Create the overlay window
@@ -77,70 +79,88 @@ BrowserWindow config:
 ### `tray.ts` — System Tray Menu
 - Show/Hide avatar
 - Change VRM model (file picker)
+- Framing presets (Head / Upper Body / Full Body)
 - Gateway URL setting
 - Quit
 
 ---
 
-## Phase 3: Gateway WebSocket Integration
+## Phase 3: Gateway WebSocket Integration ✅
 
-### Connection (replicating `src/gateway/client.ts` pattern)
+Implemented as an OpenClaw plugin with a lightweight gateway client. See `docs/avatar/PLUGIN-PLAN.md` for full details.
+
+### Connection (minimal protocol v3 handshake in `gateway-client.ts`)
 1. Open WebSocket to `ws://127.0.0.1:18789`
-2. Handle `connect.challenge` → respond with connect params
-3. Authenticate with password from `~/.openclaw/config.yaml`
+2. Handle `connect.challenge` → respond with connect params (no device auth)
+3. Client identifies as `gateway-client` / `backend` mode
 4. Listen for `"agent"` broadcast events
+5. Reconnect with exponential backoff (3s base, 30s max)
 
-### Event Mapping (`event-bridge.ts`)
-| Gateway Event | Avatar Action |
-|---|---|
-| `stream: "lifecycle"`, `phase: "start"` | → THINKING (look up, slow blink) |
-| `stream: "assistant"`, `data.text` | → SPEAKING (lip sync, show chat bubble) |
-| `stream: "tool"` | → WORKING (curious expression) |
-| `stream: "lifecycle"`, `phase: "end"` | → IDLE (return to breathing/blinking) |
-| `stream: "error"` | → brief confused face, then IDLE |
+### Event Mapping (in `gateway-client.ts`)
+| Gateway Event | Avatar Phase | Expression | Motion |
+|---|---|---|---|
+| `stream: "lifecycle"`, `phase: "start"` | thinking | surprised | 2.5x sway |
+| `stream: "assistant"`, `data.text` | speaking | happy | lip-sync + nodding |
+| `stream: "tool"` | working | relaxed | head-down tilt |
+| `stream: "lifecycle"`, `phase: "end"/"error"` | idle | neutral | normal sway |
 
-### Sending Messages
-- User types in chat bubble → send via gateway `chat.send` method
-- Mic input (future) → transcribe and send
+### Plugin Architecture
+- Avatar-overlay is an OpenClaw plugin (loaded via jiti at gateway startup)
+- Plugin service spawns Electron as child process with stdin pipe control
+- Gateway client runs in Electron main process, forwards events to renderer via IPC
+- Per-agent VRM model switching via `--agent-configs` CLI arg
+- Commands: `/avatar-show`, `/avatar-hide`
 
 **Key source files**:
-- `src/gateway/client.ts` — GatewayClient class to replicate
-- `src/infra/agent-events.ts:5-12` — AgentEventPayload type definition
-- `src/gateway/server-chat.ts` — how agent events are broadcast
+- `packages/avatar-overlay/index.ts` — plugin entry
+- `packages/avatar-overlay/src/service.ts` — Electron lifecycle management
+- `packages/avatar-overlay/src/main/gateway-client.ts` — WS client
+- `packages/avatar-overlay/src/main/stdin-listener.ts` — stdin command protocol
 
 ---
 
-## Phase 4: Three.js Avatar Renderer
+## Phase 4: Three.js Avatar Renderer ✅
 
-### `scene.ts`
+Scene, VRM loader, and base animator (breathing, blinking, head sway) were implemented in steps 1-3. Step 4 added expressions and lip-sync as renderer-only modules integrated into the existing `createAnimator()` pattern.
+
+### `scene.ts` ✅
 - WebGLRenderer with `alpha: true` (transparent background)
 - Perspective camera framing avatar from chest up
 - Soft ambient + directional light (anime-style)
-- 30fps idle, 60fps when speaking
+- `setCameraZoom(z)` — clamps Z to 0.5–3.5, lerps lookAt Y (1.45 at close-up → 0.75 at full body), returns clamped value
 
-### `vrm-loader.ts`
+### `vrm-loader.ts` ✅
 - Load `.vrm` via GLTFLoader + VRMLoaderPlugin
 - Default: bundled `AvatarSample_A.vrm` from VRM Consortium (MIT license)
 - User can swap via tray menu file picker
 
-### `animator.ts` — Procedural Animations
+### `animator.ts` — Procedural Animations ✅
 - **Breathing**: sine wave on chest bone rotation
 - **Blinking**: trigger `blink` expression every 2-6s randomly
-- **Micro-movement**: slight head sway via VRM LookAt
-- **Speaking bounce**: subtle body bob when talking
+- **Micro-movement**: slight head sway via Lissajous sine waves on head bone
+- Delegates to `ExpressionController` and `LipSync` sub-controllers
+- Extended interface: `setExpression()`, `feedLipSyncText()`, `stopLipSync()`, `isSpeaking()`
 
-### `lip-sync.ts`
-- Text-based: map characters to VRM mouth shapes (aa, ih, ou, ee, oh) at ~50ms/char
-- Cycle through visemes as text streams in
+### `expressions.ts` ✅
+- 6 named expressions: `neutral`, `happy`, `sad`, `angry`, `surprised`, `relaxed`
+- `createExpressionController(vrm)` → `{ setExpression, update, setVrm }`
+- Exponential ease-out crossfade (speed=10, ~300ms to 95% at 60fps)
+- Writes via `expressionManager.setValue()` — no conflict with blink (separate expression names)
+- `neutral` = all weights 0; setting e.g. `"happy"` targets happy=1, others=0
 
-### `expressions.ts`
-- VRM blendshapes: `happy`, `sad`, `angry`, `surprised`, `relaxed`, `neutral`
-- Simple keyword detection from assistant text to pick expression
-- Smooth transitions via lerp over 300ms
+### `lip-sync.ts` ✅
+- Text-driven viseme cycling through 5 VRM mouth shapes: `aa`, `ih`, `ou`, `ee`, `oh`
+- `createLipSync(vrm)` → `{ feedText, stop, update, isSpeaking, setVrm }`
+- `feedText(text)` appends characters to queue; `stop()` clears for speech interruption
+- ~50ms per character, vowels mapped to visemes, consonants → light `aa`, punctuation/space → mouth closed
+- O(1) consumption via read index pointer (not `shift()`)
+- Active viseme targets 0.8 weight (avoids extreme mouth distortion), lerp speed=15 (~67ms transitions)
+- Timer capped when idle to prevent accumulation; queue reclaimed when fully consumed
+- VRM `overrideMouth` handles viseme vs emotion mouth conflicts automatically
 
 ---
 
-## Phase 5: Chat Bubble UI
+## Phase 5: Chat Bubble UI (TODO)
 
 - Semi-transparent rounded bubble above/beside avatar
 - Shows streamed assistant text word-by-word
@@ -151,7 +171,7 @@ BrowserWindow config:
 
 ---
 
-## Phase 6: Avatar State Machine
+## Phase 6: Avatar State Machine (TODO)
 
 ```
 IDLE ──(agent start)──→ THINKING
@@ -168,14 +188,14 @@ Each state controls: active animations, VRM expression, lip sync on/off, chat bu
 
 ## Build Sequence
 
-1. **Scaffold** — Create `packages/avatar-overlay/`, `package.json`, `tsconfig.json`
-2. **Electron shell** — `main.ts`, `window.ts`, `tray.ts`, `preload.ts` → verify transparent window works
-3. **Three.js scene** — `scene.ts`, `vrm-loader.ts` → verify VRM model renders in the transparent window
-4. **Animations** — `animator.ts`, `expressions.ts`, `lip-sync.ts` → avatar breathes, blinks, speaks
-5. **Gateway bridge** — `event-bridge.ts`, gateway WebSocket client → avatar reacts to real OpenClaw events
+1. ~~**Scaffold** — Create `packages/avatar-overlay/`, `package.json`, `tsconfig.json`~~ ✅
+2. ~~**Electron shell** — `main.ts`, `window.ts`, `tray.ts`, `preload.ts` → verify transparent window works~~ ✅
+3. ~~**Three.js scene** — `scene.ts`, `vrm-loader.ts` → verify VRM model renders in the transparent window~~ ✅
+4. ~~**Animations** — `animator.ts`, `expressions.ts`, `lip-sync.ts` → avatar breathes, blinks, speaks~~ ✅
+5. ~~**Gateway bridge** — `gateway-client.ts`, plugin service → avatar reacts to real OpenClaw events~~ ✅
 6. **Chat bubble** — `chat-bubble.ts` → interactive text input/output
 7. **State machine** — `avatar-state.ts` → wire everything together
-8. **Polish** — position persistence, tray menu, default model bundling
+8. ~~**Polish** — position persistence, tray menu, default model bundling~~ ✅
 
 ---
 

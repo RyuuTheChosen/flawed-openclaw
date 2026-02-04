@@ -8,15 +8,31 @@
     "build": "tsc --build && rolldown --config rolldown.config.mjs && node scripts/copy-renderer-html.mjs",
     "start": "electron dist/main/main/main.js"
   },
+  "files": [
+    "index.ts",
+    "src/",
+    "dist/main/",
+    "dist/renderer-bundle/",
+    "assets/",
+    "openclaw.plugin.json"
+  ],
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
   "dependencies": {
     "three": "~0.170.0",
-    "@pixiv/three-vrm": "~3.3.0"
+    "@pixiv/three-vrm": "~3.3.0",
+    "ws": "^8.18.0"
   },
   "devDependencies": {
+    "openclaw": "workspace:*",
     "electron": "~33.0.0",
     "electron-builder": "~25.1.0",
     "rolldown": "1.0.0-rc.2",
     "typescript": "^5.9.3",
-    "@types/three": "~0.170.0"
+    "@types/three": "~0.170.0",
+    "@types/ws": "^8.5.0"
   }
 }

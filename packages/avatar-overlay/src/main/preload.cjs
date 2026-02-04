@@ -6,6 +6,10 @@ const IPC = {
 	GET_VRM_PATH: "avatar:get-vrm-path",
 	VRM_MODEL_CHANGED: "avatar:vrm-model-changed",
 	SHOW_CONTEXT_MENU: "avatar:show-context-menu",
+	GET_CAMERA_ZOOM: "avatar:get-camera-zoom",
+	SAVE_CAMERA_ZOOM: "avatar:save-camera-zoom",
+	SET_CAMERA_ZOOM: "avatar:set-camera-zoom",
+	AGENT_STATE: "avatar:agent-state",
 };
 
 contextBridge.exposeInMainWorld("avatarBridge", {
@@ -18,6 +22,7 @@ contextBridge.exposeInMainWorld("avatarBridge", {
 	},
 
 	onVrmModelChanged(callback) {
+		ipcRenderer.removeAllListeners(IPC.VRM_MODEL_CHANGED);
 		ipcRenderer.on(IPC.VRM_MODEL_CHANGED, (_event, path) => {
 			callback(path);
 		});
@@ -29,5 +34,27 @@ contextBridge.exposeInMainWorld("avatarBridge", {
 
 	showContextMenu() {
 		ipcRenderer.send(IPC.SHOW_CONTEXT_MENU);
+	},
+
+	getCameraZoom() {
+		return ipcRenderer.invoke(IPC.GET_CAMERA_ZOOM);
+	},
+
+	saveCameraZoom(zoom) {
+		ipcRenderer.send(IPC.SAVE_CAMERA_ZOOM, zoom);
+	},
+
+	onCameraZoomChanged(callback) {
+		ipcRenderer.removeAllListeners(IPC.SET_CAMERA_ZOOM);
+		ipcRenderer.on(IPC.SET_CAMERA_ZOOM, (_event, zoom) => {
+			callback(zoom);
+		});
+	},
+
+	onAgentState(callback) {
+		ipcRenderer.removeAllListeners(IPC.AGENT_STATE);
+		ipcRenderer.on(IPC.AGENT_STATE, (_event, state) => {
+			callback(state);
+		});
 	},
 });
