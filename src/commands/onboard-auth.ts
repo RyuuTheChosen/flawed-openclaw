@@ -35,6 +35,12 @@ export {
   applyOpencodeZenProviderConfig,
 } from "./onboard-auth.config-opencode.js";
 export {
+  applyLmstudioConfig,
+  applyLmstudioProviderConfig,
+  applyOllamaOnboardConfig,
+  applyOllamaOnboardProviderConfig,
+} from "./onboard-auth.config-local-llm.js";
+export {
   OPENROUTER_DEFAULT_MODEL_REF,
   setAnthropicApiKey,
   setGeminiApiKey,

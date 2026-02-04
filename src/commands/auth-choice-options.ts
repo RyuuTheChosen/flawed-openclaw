@@ -21,7 +21,8 @@ export type AuthChoiceGroupId =
   | "minimax"
   | "synthetic"
   | "venice"
-  | "qwen";
+  | "qwen"
+  | "local-llm";
 
 export type AuthChoiceGroup = {
   value: AuthChoiceGroupId;
@@ -120,6 +121,12 @@ const AUTH_CHOICE_GROUP_DEFS: {
     hint: "Privacy-focused (uncensored models)",
     choices: ["venice-api-key"],
   },
+  {
+    value: "local-llm",
+    label: "Local LLM",
+    hint: "LM Studio + Ollama",
+    choices: ["lmstudio", "ollama"],
+  },
 ];
 
 export function buildAuthChoiceOptions(params: {
@@ -192,6 +199,16 @@ export function buildAuthChoiceOptions(params: {
     value: "opencode-zen",
     label: "OpenCode Zen (multi-model proxy)",
     hint: "Claude, GPT, Gemini via opencode.ai/zen",
+  });
+  options.push({
+    value: "lmstudio",
+    label: "LM Studio",
+    hint: "Local OpenAI-compatible server",
+  });
+  options.push({
+    value: "ollama",
+    label: "Ollama",
+    hint: "Local model runner",
   });
   options.push({ value: "minimax-api", label: "MiniMax M2.1" });
   options.push({
