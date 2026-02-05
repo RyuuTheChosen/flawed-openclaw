@@ -29,6 +29,11 @@ export interface TTSController {
 	cancel(): void;
 
 	/**
+	 * Reset spoken index for a new speaking session (without cancelling current speech).
+	 */
+	resetForNewSession(): void;
+
+	/**
 	 * Check if currently speaking.
 	 */
 	isSpeaking(): boolean;
@@ -139,6 +144,13 @@ export function createTTSController(
 			}
 			lipSync.clearQueue();
 			notifySpeakingChange(false);
+		},
+
+		resetForNewSession(): void {
+			// Reset tracking for new speaking session without cancelling current speech
+			if (ttsService) {
+				ttsService.resetSpokenIndex();
+			}
 		},
 
 		isSpeaking(): boolean {

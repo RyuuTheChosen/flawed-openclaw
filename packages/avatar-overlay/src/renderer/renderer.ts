@@ -16,9 +16,14 @@ async function boot(): Promise<void> {
 	const canvas = document.getElementById("avatar-canvas") as HTMLCanvasElement;
 	const { renderer, scene, camera, setCameraZoom } = createScene(canvas);
 
+	// Track previous phase for TTS session management
+	let previousPhase: string = "idle";
+
 	// Register agent state listener early (before async VRM load)
 	bridge.onAgentState((state) => {
 		if (!animator) return;
+
+		const isNewSpeakingSession = state.phase === "speaking" && previousPhase !== "speaking";
 
 		switch (state.phase) {
 			case "thinking":
@@ -33,6 +38,10 @@ async function boot(): Promise<void> {
 				if (state.text) {
 					// If TTS is enabled, use audio-driven lip sync
 					if (ttsController?.isEnabled()) {
+						// Reset for new speaking session (transition from non-speaking to speaking)
+						if (isNewSpeakingSession) {
+							ttsController.resetForNewSession();
+						}
 						ttsController.queueText(state.text);
 					} else {
 						// Fallback to text-based lip sync
@@ -50,9 +59,12 @@ async function boot(): Promise<void> {
 				animator.setExpression("neutral");
 				animator.setPhase("idle");
 				animator.stopLipSync();
-				ttsController?.cancel();
+				// Don't cancel TTS on idle - let queued speech finish naturally
+				// TTS will be cancelled when a new interaction starts (thinking/working)
 				break;
 		}
+
+		previousPhase = state.phase;
 	});
 
 	// Model swap from tray or gateway agent switch
