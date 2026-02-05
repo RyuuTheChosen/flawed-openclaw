@@ -251,8 +251,9 @@ export function createChatBubble(
 			currentAgentId = state.agentId;
 		}
 		if (state.text) {
-			currentMsgEl.textContent += state.text;
-			currentMsgText += state.text;
+			// Gateway sends cumulative text, not deltas - replace instead of append
+			currentMsgEl.textContent = state.text;
+			currentMsgText = state.text;
 		}
 		autoScroll();
 		// Reset idle timer — will fire if no more speaking events arrive
