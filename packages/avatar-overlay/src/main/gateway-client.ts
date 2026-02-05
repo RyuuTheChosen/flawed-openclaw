@@ -51,6 +51,8 @@ export function createGatewayClient(
 	// Track pending request IDs to match responses
 	let sessionsListRequestId: string | null = null;
 	let agentsListRequestId: string | null = null;
+	// Track if we've completed initial connection setup
+	let connectionSetupDone = false;
 
 	function processAgentEvent(evt: AgentEventPayload): void {
 		const { stream, data, sessionKey } = evt;
@@ -141,14 +143,13 @@ export function createGatewayClient(
 						}
 					}
 
-					// Connect success - request active sessions first
-					if (connectSent && !sessionsListRequestId && !agentsListRequestId) {
+					// Connect success - request active sessions once
+					if (connectSent && !connectionSetupDone && !sessionsListRequestId && !agentsListRequestId) {
+						connectionSetupDone = true;
 						console.log("avatar-overlay: gateway connected successfully");
 						backoffMs = GATEWAY_RECONNECT_BASE_MS;
-						// Request recently active sessions first
-						if (!currentSessionKey) {
-							requestSessionsList();
-						}
+						// Request recently active sessions
+						requestSessionsList();
 					}
 				} else {
 					console.error("avatar-overlay: gateway response error:", res.error?.message ?? "unknown");
@@ -202,6 +203,7 @@ export function createGatewayClient(
 	function queueConnect(): void {
 		connectNonce = null;
 		connectSent = false;
+		connectionSetupDone = false; // Reset for new connection
 		if (connectTimer) clearTimeout(connectTimer);
 		connectTimer = setTimeout(() => sendConnect(), 750);
 	}
