@@ -304,6 +304,11 @@ export function createOverlayWindow(): BrowserWindow {
 		if (cursorTrackingInterval) return; // Already tracking
 
 		cursorTrackingInterval = setInterval(() => {
+			if (win.isDestroyed()) {
+				clearInterval(cursorTrackingInterval!);
+				cursorTrackingInterval = null;
+				return;
+			}
 			const cursor = screen.getCursorScreenPoint();
 			const display = screen.getPrimaryDisplay();
 			const { width, height } = display.workAreaSize;
