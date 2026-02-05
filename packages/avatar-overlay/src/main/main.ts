@@ -8,7 +8,7 @@ import { createTray } from "./tray.js";
 import { createStdinListener, type StdinCommand } from "./stdin-listener.js";
 import { createGatewayClient } from "./gateway-client.js";
 import { IPC } from "../shared/ipc-channels.js";
-import { GATEWAY_URL_DEFAULT } from "../shared/config.js";
+import { GATEWAY_URL_DEFAULT, CHAT_INPUT_MAX_LENGTH } from "../shared/config.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -137,6 +137,13 @@ app.whenReady().then(() => {
 		agentConfigs,
 		authToken,
 	);
+
+	// IPC: send chat message to active agent
+	ipcMain.on(IPC.SEND_CHAT, (_event, text: unknown) => {
+		if (typeof text !== "string" || text.trim().length === 0 || text.length > CHAT_INPUT_MAX_LENGTH) return;
+		const agentId = gw.getCurrentAgentId();
+		if (agentId) gw.sendChat(text.trim(), agentId);
+	});
 
 	// Clean up resources on quit
 	app.on("before-quit", () => {

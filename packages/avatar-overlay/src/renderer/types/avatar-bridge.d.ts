@@ -8,6 +8,7 @@ interface AvatarBridge {
 	saveCameraZoom(zoom: number): void;
 	onCameraZoomChanged(callback: (zoom: number) => void): void;
 	onAgentState(callback: (state: import("../../shared/types.js").AgentState) => void): void;
+	sendChat(text: string): void;
 	getAnimationsConfig(): Promise<{
 		clips: Record<import("../../shared/types.js").AgentPhase, string[]>;
 	} | null>;

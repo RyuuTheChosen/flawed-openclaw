@@ -11,6 +11,7 @@ const IPC = {
 	SET_CAMERA_ZOOM: "avatar:set-camera-zoom",
 	AGENT_STATE: "avatar:agent-state",
 	GET_ANIMATIONS_CONFIG: "avatar:get-animations-config",
+	SEND_CHAT: "avatar:send-chat",
 };
 
 contextBridge.exposeInMainWorld("avatarBridge", {
@@ -61,5 +62,9 @@ contextBridge.exposeInMainWorld("avatarBridge", {
 		ipcRenderer.on(IPC.AGENT_STATE, (_event, state) => {
 			callback(state);
 		});
+	},
+
+	sendChat(text) {
+		ipcRenderer.send(IPC.SEND_CHAT, text);
 	},
 });

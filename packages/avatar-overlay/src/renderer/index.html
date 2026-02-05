@@ -61,6 +61,75 @@
     #drag-handle:active {
       cursor: grabbing;
     }
+
+    #chat-bubble {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 60%;
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+      background: rgba(20, 20, 30, 0.85);
+      border-radius: 16px 16px 0 0;
+      padding: 8px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 300ms ease;
+      z-index: 20;
+    }
+    #chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      font-family: "Consolas", "Monaco", "Courier New", monospace;
+      font-size: 11px;
+      line-height: 1.4;
+      color: #e0e0e0;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+    }
+    .chat-assistant-msg {
+      padding: 4px 0;
+      color: #c8e6ff;
+      word-wrap: break-word;
+    }
+    .chat-user-msg {
+      padding: 4px 0;
+      color: #ffe0b2;
+      text-align: right;
+      word-wrap: break-word;
+    }
+    .chat-status {
+      padding: 4px 0;
+      color: #a0a0a0;
+      font-style: italic;
+    }
+    #chat-input-row {
+      display: flex;
+      gap: 4px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      padding-top: 6px;
+      margin-top: 4px;
+    }
+    #chat-input {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      color: #e0e0e0;
+      font-family: inherit;
+      font-size: 11px;
+      padding: 6px 10px;
+      outline: none;
+    }
+    #chat-input:focus {
+      border-color: rgba(150, 200, 255, 0.4);
+    }
+    #chat-input::placeholder {
+      color: rgba(255, 255, 255, 0.3);
+    }
   </style>
 </head>
 <body>

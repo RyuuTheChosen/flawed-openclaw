@@ -188,14 +188,37 @@ Replaced procedural sine-wave bone animations with Mixamo FBX clips retargeted a
 
 ---
 
-## Phase 6: Chat Bubble UI (TODO)
+## Phase 6: Chat Bubble UI ✅
 
-- Semi-transparent rounded bubble above/beside avatar
-- Shows streamed assistant text word-by-word
-- Text input at bottom for user messages
-- Click avatar to toggle bubble visibility
-- Auto-hides after 10s of inactivity
-- Styled with anime-inspired aesthetics (rounded, soft colors)
+Overlay chat bubble on the avatar window that displays streamed assistant text and accepts user input. Sends user messages to the active agent via the gateway `chat.send` protocol.
+
+### Architecture
+- **chat-bubble.ts** — DOM construction, phase-based state machine, text streaming, input handling, scroll lock, history pruning
+- **IPC plumbing** — `SEND_CHAT` channel (renderer → main → gateway), `sendChat` on bridge + gateway client, `getCurrentAgentId` for routing
+- **CSS** — Inline styles in `index.html`, dark translucent panel with monospace text, 300ms opacity fade
+
+### Phase behavior
+| Transition | Action |
+|------------|--------|
+| any → thinking | Clear messages if coming from idle (new conversation). Show "thinking..." with animated dots |
+| any → speaking | Stream `state.text` into assistant message div. Multiple speaking events append to same div |
+| any → working | Show "working..." with animated dots |
+| any → idle | Start 10s idle timer → auto-hide bubble |
+
+### Input
+- Enter key sends message via `bridge.sendChat(text)` → IPC `SEND_CHAT` → main validates (type, length ≤ 4096) → `gw.sendChat(text, sessionKey)` → gateway `chat.send` frame
+- User messages rendered right-aligned in warm color
+- Agent replies arrive through existing `agent` event stream → `onStateChange` → IPC → chat bubble
+
+### Security
+- All text rendered via `textContent` (never `innerHTML`) — no XSS from agent text or user input
+- `clearTimers()` at top of every phase handler prevents timer leaks on rapid phase changes
+- History pruned at 200 message divs to prevent DOM growth
+- `pointerEvents: none` when hidden — clicks pass through to canvas/desktop
+
+### Canvas click toggle
+- 5px movement threshold between mousedown and click to distinguish drag from toggle
+- Click on avatar body toggles bubble visibility
 
 ---
 
@@ -222,7 +245,7 @@ Future enhancements: transition warm-ups, duration awareness, error personality,
 4. ~~**Animations** — `animator.ts`, `expressions.ts`, `lip-sync.ts` → avatar breathes, blinks, speaks~~ ✅
 5. ~~**Gateway bridge** — `gateway-client.ts`, plugin service → avatar reacts to real OpenClaw events~~ ✅
 6. ~~**Mixamo animations** — `animation-loader.ts`, `mixamo-retarget.ts`, `state-machine.ts` → Mixamo FBX clips with FSM~~ ✅
-7. **Chat bubble** — `chat-bubble.ts` → interactive text input/output
+7. ~~**Chat bubble** — `chat-bubble.ts`, IPC plumbing, gateway `chat.send` → interactive text input/output~~ ✅
 8. **Advanced state machine** — `avatar-state.ts` → transitions, duration awareness, mood drift
 9. ~~**Polish** — position persistence, tray menu, default model bundling~~ ✅
 

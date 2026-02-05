@@ -35,15 +35,15 @@ Current state: the avatar sits in a transparent window, breathes, blinks, sways,
 
 ## 3. Chat Bubble
 
-The avatar is mute. It reacts to messages you cannot see.
+~~The avatar is mute. It reacts to messages you cannot see.~~ Chat bubble implemented — streams assistant text, accepts user input, auto-shows/hides.
 
-| Gap | What it means |
-|-----|---------------|
-| No speech display | Streamed text word-by-word in a bubble above/beside avatar |
-| No input | No way to type a message to the agent through the avatar |
-| No auto-hide | Bubble should fade after inactivity |
-| No styling | Needs anime-inspired rounded bubble, soft colors, readable typography |
-| No tool display | When working, could show what tool is being used |
+| Gap | Status | What it means |
+|-----|--------|---------------|
+| ~~No speech display~~ | ✅ Fixed | Streamed text word-by-word in chat bubble overlay |
+| ~~No input~~ | ✅ Fixed | Text input sends to agent via gateway `chat.send` |
+| ~~No auto-hide~~ | ✅ Fixed | Bubble fades after 10s inactivity |
+| ~~No styling~~ | ✅ Fixed | Dark translucent panel, monospace, color-coded messages |
+| No tool display | Open | When working, could show what tool is being used |
 
 ---
 
@@ -54,7 +54,7 @@ The avatar ignores you. Drag to reposition and scroll to zoom — that is all.
 | Gap | What it means |
 |-----|---------------|
 | No hover awareness | Avatar does not notice your cursor. Should glance at it, perk up |
-| No click response | Clicking the avatar does nothing. Should toggle chat bubble or wave |
+| ~~No click response~~ | ✅ Fixed | Click toggles chat bubble (5px drag guard) |
 | No presence detection | Avatar does not know if you are at the computer. Could react to long absence/return |
 | No pet/poke reactions | Fun interactions — poke the avatar, it reacts (annoyed, amused, surprised) |
 
@@ -93,7 +93,7 @@ Every avatar behaves identically. thinking = surprised, speaking = happy, workin
 |------|----------|--------|
 | ~~**High**~~ | ~~State machine + transitions~~ | ✅ Crossfade FSM implemented |
 | ~~**High**~~ | ~~Idle variety~~ | ✅ Mixamo clip rotation implemented |
-| **High** | Chat bubble | Gives the avatar a voice — without it, it is a decorative widget |
+| ~~**High**~~ | ~~Chat bubble~~ | ✅ Chat bubble with text streaming, input, auto-hide |
 | **Medium** | Eye gaze + hover awareness | Makes the avatar feel alive and aware of you |
 | **Medium** | Lip-sync prosody | Pauses, emphasis, pacing make speech feel real |
 | **Medium** | Expression variety | Prevents the one-note reaction problem |
@@ -105,4 +105,4 @@ Every avatar behaves identically. thinking = surprised, speaking = happy, workin
 
 ## What moves the needle
 
-The state machine, idle variety, and chat bubble are where the experience jumps from "tech demo" to "companion." Everything else layers on top of those three.
+~~The state machine, idle variety, and chat bubble are where the experience jumps from "tech demo" to "companion."~~ All three core gaps (state machine, idle variety, chat bubble) are now addressed. Next priority: eye gaze, hover awareness, and expression variety.

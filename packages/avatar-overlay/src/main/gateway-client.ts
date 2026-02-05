@@ -40,7 +40,7 @@ export function createGatewayClient(
 	onModelSwitch: (vrmPath: string) => void,
 	agentConfigs?: Record<string, { vrmPath?: string }>,
 	authToken?: string,
-): { destroy: () => void } {
+): { destroy: () => void; sendChat: (text: string, sessionKey: string) => void; getCurrentAgentId: () => string | null } {
 	let ws: WebSocket | null = null;
 	let destroyed = false;
 	let backoffMs = GATEWAY_RECONNECT_BASE_MS;
@@ -202,6 +202,25 @@ export function createGatewayClient(
 				ws.close();
 				ws = null;
 			}
+		},
+
+		sendChat(text: string, sessionKey: string) {
+			if (!ws || ws.readyState !== WebSocket.OPEN) return;
+			const frame = {
+				type: "req",
+				id: randomUUID(),
+				method: "chat.send",
+				params: {
+					sessionKey,
+					message: text,
+					idempotencyKey: randomUUID(),
+				},
+			};
+			ws.send(JSON.stringify(frame));
+		},
+
+		getCurrentAgentId() {
+			return currentAgentId;
 		},
 	};
 }

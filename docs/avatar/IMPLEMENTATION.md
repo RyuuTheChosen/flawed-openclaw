@@ -32,9 +32,12 @@ packages/avatar-overlay/
         scene.ts
         vrm-loader.ts
         animator.ts
+      ui/
+        chat-bubble.ts
     shared/
       config.ts
       ipc-channels.ts
+      types.ts
   assets/
     default-avatar.vrm         # VRM Consortium sample (MIT)
     icon.png                   # 32x32 tray icon
@@ -84,9 +87,10 @@ packages/avatar-overlay/
 Constants: `WINDOW_WIDTH=300`, `WINDOW_HEIGHT=400`, `WINDOW_POSITION_FILE="avatar-overlay-position.json"`
 Camera zoom constants: `CAMERA_ZOOM_MIN=0.5`, `CAMERA_ZOOM_MAX=3.5`, `CAMERA_ZOOM_DEFAULT=0.8`, `CAMERA_ZOOM_STEP=0.15`, `CAMERA_ZOOM_FILE="avatar-overlay-camera.json"`, `CAMERA_PRESETS={ head: 0.6, upperBody: 1.2, fullBody: 3.0 }`
 Gateway constants: `GATEWAY_URL_DEFAULT="ws://127.0.0.1:18789"`, `GATEWAY_RECONNECT_BASE_MS=3000`, `GATEWAY_RECONNECT_MAX_MS=30000`
+Chat bubble constants: `CHAT_IDLE_FADE_MS=10000`, `CHAT_FADE_TRANSITION_MS=300`, `CHAT_MAX_HISTORY=200`, `CHAT_DOTS_INTERVAL_MS=400`, `CHAT_INPUT_MAX_LENGTH=4096`
 
 ### `src/shared/ipc-channels.ts`
-IPC channel name constants shared between main and renderer: `DRAG_MOVE`, `SET_IGNORE_MOUSE`, `GET_VRM_PATH`, `VRM_MODEL_CHANGED`, `SHOW_CONTEXT_MENU`, `GET_CAMERA_ZOOM`, `SAVE_CAMERA_ZOOM`, `SET_CAMERA_ZOOM`, `AGENT_STATE`
+IPC channel name constants shared between main and renderer: `DRAG_MOVE`, `SET_IGNORE_MOUSE`, `GET_VRM_PATH`, `VRM_MODEL_CHANGED`, `SHOW_CONTEXT_MENU`, `GET_CAMERA_ZOOM`, `SAVE_CAMERA_ZOOM`, `SET_CAMERA_ZOOM`, `AGENT_STATE`, `GET_ANIMATIONS_CONFIG`, `SEND_CHAT`
 
 ### `src/main/window.ts` — Transparent overlay
 - BrowserWindow: `transparent: true`, `frame: false`, `alwaysOnTop: true`, `skipTaskbar: true`, `resizable: false`, `hasShadow: false`
@@ -113,6 +117,7 @@ Exposes `window.avatarBridge` with:
 - `saveCameraZoom(zoom: number)` — send zoom value to main process for persistence
 - `onCameraZoomChanged(callback)` — listen for preset changes from main process (clears previous listener before registering)
 - `onAgentState(callback)` — receive agent phase updates from gateway client (clears previous listener before registering)
+- `sendChat(text: string)` — fire-and-forget send to main process via `SEND_CHAT` IPC channel
 
 ### `src/main/main.ts` — App lifecycle
 - `requestSingleInstanceLock()` to prevent multiple instances
@@ -167,7 +172,8 @@ Interface: `createAnimator(vrm)` → `{ update, setVrm, setExpression, setPhase,
 - Drag: mousedown/mousemove/mouseup → `avatarBridge.dragMove(dx, dy)`
 - Scroll-wheel zoom: `wheel` listener (`passive: false`, `preventDefault`), steps by `CAMERA_ZOOM_STEP` per tick, calls `setCameraZoom` + `saveCameraZoom`
 - Camera preset listener: `onCameraZoomChanged` → `setCameraZoom` + `saveCameraZoom` (for menu-driven presets)
-- Agent state: `onAgentState` drives `setExpression`, `setPhase`, `feedLipSyncText`, `stopLipSync` based on agent phase (thinking/speaking/working/idle)
+- Agent state: `onAgentState` drives `setExpression`, `setPhase`, `feedLipSyncText`, `stopLipSync` based on agent phase (thinking/speaking/working/idle), and forwards state to chat bubble via `chatBubble.handleAgentState(state)`
+- Chat bubble: created before agent state listener registration, toggled by canvas click (5px drag guard)
 - Model swap: listen for `onVrmModelChanged`, unload old, load new
 - Animation loop: `requestAnimationFrame` → `animator.update(delta, elapsed)` → `vrm.update(delta)` → `renderer.render(scene, camera)`
 
@@ -201,7 +207,43 @@ Implements `OpenClawPluginService` to spawn/kill the Electron child process:
 Readline-based newline-delimited JSON: `show`, `hide`, `shutdown`, `model-switch`.
 
 ### `src/main/gateway-client.ts` — Gateway WebSocket client
-Minimal protocol v3 handshake (no device auth). Listens for `"agent"` event frames and maps them to avatar phases. Tracks `sessionKey` changes for per-agent VRM hot-swapping.
+Minimal protocol v3 handshake (no device auth). Listens for `"agent"` event frames and maps them to avatar phases. Tracks `sessionKey` changes for per-agent VRM hot-swapping. Returns `{ destroy, sendChat, getCurrentAgentId }`:
+- `sendChat(text, sessionKey)` — sends `chat.send` request frame with idempotency key, guarded on `ws.readyState === OPEN`
+- `getCurrentAgentId()` — returns the tracked `currentAgentId` (set from incoming `sessionKey` on agent events)
+
+---
+
+## Step 5: Chat Bubble Overlay
+
+### `src/renderer/ui/chat-bubble.ts` — Chat bubble module
+`createChatBubble(parent, bridge)` → `{ handleAgentState, toggle, destroy }`
+
+DOM structure: `#chat-bubble` container (absolute, bottom, 60% height, z-index 20) → `#chat-messages` (scrollable) + `#chat-input-row` → `#chat-input` (text, maxlength 4096).
+
+Phase-based state machine:
+- `thinking` → clear messages if previous phase was idle (new conversation), show "thinking..." with animated dots, auto-show bubble
+- `speaking` → remove status, create/append to assistant message div (`textContent` only), auto-scroll, reset idle timer
+- `working` → show "working..." with animated dots, auto-show bubble
+- `idle` → remove status, start 10s idle timer → auto-hide
+
+Timer management: `clearTimers()` called at top of every phase handler to prevent leaks on rapid phase changes.
+
+Input: Enter key → validate non-empty → `bridge.sendChat(text)` → append `.chat-user-msg` div → clear input → auto-scroll → prune history.
+
+Scroll behavior: scroll listener tracks `userScrolled` flag (within 10px of bottom = false). Auto-scroll only runs when `!userScrolled`. Reset on message clear (new conversation).
+
+History pruning: caps at `CHAT_MAX_HISTORY` (200) message divs, removes oldest.
+
+Show/hide: opacity 0/1 with CSS `transition: opacity 300ms ease`, `pointerEvents: none/auto`. Hidden bubble passes clicks through to canvas via existing Electron `setIgnoreMouseEvents(true, { forward: true })`.
+
+### `src/renderer/index.html` — Chat bubble CSS
+Inline styles for `#chat-bubble`, `#chat-messages`, `.chat-assistant-msg` (blue), `.chat-user-msg` (warm, right-aligned), `.chat-status` (gray italic), `#chat-input-row`, `#chat-input` (with focus/placeholder states). Monospace font, dark translucent background.
+
+### `src/main/main.ts` — SEND_CHAT IPC handler
+Validates `typeof text === "string"`, non-empty after trim, length ≤ `CHAT_INPUT_MAX_LENGTH`. Resolves current agent ID via `gw.getCurrentAgentId()`, calls `gw.sendChat(text, agentId)`. Silently drops if no active agent.
+
+### `src/main/window.ts` — IPC cleanup
+Added `ipcMain.removeAllListeners(IPC.SEND_CHAT)` alongside existing cleanup to prevent handler stacking on window re-creation.
 
 ---
 
@@ -214,8 +256,9 @@ Minimal protocol v3 handshake (no device auth). Listens for `"agent"` event fram
 5. `src/renderer/types/avatar-bridge.d.ts` — type declarations
 6. `src/renderer/avatar/scene.ts` → `vrm-loader.ts` → `animator.ts` → `expressions.ts` → `lip-sync.ts` — Three.js core
 7. `src/renderer/renderer.ts`, `src/renderer/index.html` — renderer entry
-8. `openclaw.plugin.json`, `index.ts`, `src/service.ts`, `src/electron-launcher.ts` — plugin integration
-9. `assets/default-avatar.vrm`, `assets/icon.png` — assets
+8. `src/renderer/ui/chat-bubble.ts` — chat bubble overlay
+9. `openclaw.plugin.json`, `index.ts`, `src/service.ts`, `src/electron-launcher.ts` — plugin integration
+10. `assets/default-avatar.vrm`, `assets/icon.png` — assets
 
 ## Verification
 
@@ -232,6 +275,12 @@ pnpm dev
 - [ ] Tray icon with Show/Hide, Change Avatar Model, Quit
 - [ ] Window position and camera zoom persist across restarts
 - [ ] Gear menu → Framing presets work
+- [ ] Click avatar canvas → chat bubble toggles (drag does not toggle)
+- [ ] Agent thinking shows "thinking..." with animated dots in chat bubble
+- [ ] Agent speaking streams text in blue in chat bubble
+- [ ] Type message + Enter → message appears right-aligned, reaches agent
+- [ ] Bubble auto-hides after 10s idle
+- [ ] New conversation (thinking after idle) clears old messages
 
 ### Plugin mode
 ```bash
