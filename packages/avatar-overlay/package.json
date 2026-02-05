@@ -12,6 +12,8 @@
     "index.ts",
     "src/",
     "dist/main/",
+    "dist/preload.cjs",
+    "dist/chat-preload.cjs",
     "dist/renderer-bundle/",
     "dist/chat-renderer-bundle/",
     "assets/",
