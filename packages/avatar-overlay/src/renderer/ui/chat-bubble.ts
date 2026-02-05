@@ -38,18 +38,22 @@ export function createChatBubble(
 	// --- DOM ---
 	const container = document.createElement("div");
 	container.id = "chat-bubble";
+	container.className = "chat__bubble";
 
 	const messagesEl = document.createElement("div");
 	messagesEl.id = "chat-messages";
+	messagesEl.className = "chat__messages";
 	messagesEl.setAttribute("role", "log");
 	messagesEl.setAttribute("aria-live", "polite");
 	messagesEl.setAttribute("aria-label", "Chat messages");
 
 	const inputRow = document.createElement("div");
 	inputRow.id = "chat-input-row";
+	inputRow.className = "chat__input-row";
 
 	const inputEl = document.createElement("input");
 	inputEl.id = "chat-input";
+	inputEl.className = "input chat__input";
 	inputEl.type = "text";
 	inputEl.placeholder = "Send a message...";
 	inputEl.maxLength = CHAT_INPUT_MAX_LENGTH;
@@ -57,10 +61,12 @@ export function createChatBubble(
 
 	const charCounter = document.createElement("span");
 	charCounter.id = "char-counter";
+	charCounter.className = "chat__char-counter";
 	charCounter.setAttribute("aria-live", "polite");
 
 	const sendBtn = document.createElement("button");
 	sendBtn.id = "send-btn";
+	sendBtn.className = "btn btn--icon chat__send";
 	sendBtn.type = "button";
 	sendBtn.disabled = true;
 	sendBtn.setAttribute("aria-label", "Send message");
@@ -167,10 +173,52 @@ export function createChatBubble(
 	// --- Append message to DOM (for loading history) ---
 	function appendMessageToDOM(role: "user" | "assistant", text: string): void {
 		const msgDiv = document.createElement("div");
-		msgDiv.className = role === "user" ? "chat-user-msg" : "chat-assistant-msg";
+		// Use both legacy and BEM classes for compatibility
+		msgDiv.className = role === "user"
+			? "message message--user chat-user-msg"
+			: "message message--assistant chat-assistant-msg";
 		msgDiv.textContent = text;
 		messagesEl.appendChild(msgDiv);
 		pruneHistory();
+	}
+
+	// --- Render empty state ---
+	function renderEmptyState(): HTMLElement {
+		const el = document.createElement("div");
+		el.className = "chat-empty";
+		el.innerHTML = `
+			<div class="chat-empty__icon" aria-hidden="true">💬</div>
+			<div class="chat-empty__title">No messages yet</div>
+			<div class="chat-empty__message">Start a conversation</div>
+		`;
+		return el;
+	}
+
+	// --- Render error state ---
+	function renderError(message: string): HTMLElement {
+		const el = document.createElement("div");
+		el.className = "chat-error";
+		el.setAttribute("role", "alert");
+		el.innerHTML = `
+			<svg class="chat-error__icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+				<circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.5"/>
+				<path d="M8 4v5M8 11v1"/>
+			</svg>
+			<span class="chat-error__message">${message}</span>
+		`;
+		return el;
+	}
+
+	// --- Render loading skeleton ---
+	function renderLoadingSkeleton(): HTMLElement {
+		const el = document.createElement("div");
+		el.className = "chat-loading";
+		for (let i = 0; i < 3; i++) {
+			const skeleton = document.createElement("div");
+			skeleton.className = "skeleton message-skeleton";
+			el.appendChild(skeleton);
+		}
+		return el;
 	}
 
 	// --- Send message ---
@@ -178,7 +226,8 @@ export function createChatBubble(
 		bridge.sendChat(text);
 
 		const msgDiv = document.createElement("div");
-		msgDiv.className = "chat-user-msg";
+		// Use both legacy and BEM classes for compatibility
+		msgDiv.className = "message message--user chat-user-msg";
 		msgDiv.textContent = text;
 		messagesEl.appendChild(msgDiv);
 		pruneHistory();
@@ -195,23 +244,23 @@ export function createChatBubble(
 	// --- Character counter ---
 	function updateCharCounter(len: number): void {
 		if (len > INPUT_MAX_DISPLAY_CHARS) {
-			charCounter.classList.add("visible");
+			charCounter.classList.add("visible", "is-visible");
 			charCounter.textContent = `${len}/${CHAT_INPUT_MAX_LENGTH}`;
 
 			if (len >= CHAT_INPUT_MAX_LENGTH) {
-				charCounter.classList.remove("warning");
-				charCounter.classList.add("error");
+				charCounter.classList.remove("warning", "chat__char-counter--warning");
+				charCounter.classList.add("error", "chat__char-counter--error");
 			} else if (len >= CHAT_INPUT_MAX_LENGTH * 0.9) {
-				charCounter.classList.add("warning");
-				charCounter.classList.remove("error");
+				charCounter.classList.add("warning", "chat__char-counter--warning");
+				charCounter.classList.remove("error", "chat__char-counter--error");
 			} else {
-				charCounter.classList.remove("warning");
-				charCounter.classList.remove("error");
+				charCounter.classList.remove("warning", "chat__char-counter--warning");
+				charCounter.classList.remove("error", "chat__char-counter--error");
 			}
 		} else {
-			charCounter.classList.remove("visible");
-			charCounter.classList.remove("warning");
-			charCounter.classList.remove("error");
+			charCounter.classList.remove("visible", "is-visible");
+			charCounter.classList.remove("warning", "chat__char-counter--warning");
+			charCounter.classList.remove("error", "chat__char-counter--error");
 		}
 	}
 
@@ -244,7 +293,8 @@ export function createChatBubble(
 		removeStatus();
 		if (currentMsgEl === null) {
 			currentMsgEl = document.createElement("div");
-			currentMsgEl.className = "chat-assistant-msg";
+			// Use both legacy and BEM classes for compatibility
+			currentMsgEl.className = "message message--assistant chat-assistant-msg";
 			messagesEl.appendChild(currentMsgEl);
 			pruneHistory();
 			currentMsgText = "";

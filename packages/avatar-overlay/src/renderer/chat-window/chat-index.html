@@ -5,20 +5,11 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data: blob:; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' file: data: blob:; connect-src 'self' file: data: blob:" />
   <title>OpenClaw Chat</title>
   <link rel="stylesheet" href="./styles/chat.css" />
-  <style>
-    * { margin: 0; padding: 0; }
-    html, body {
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background: transparent;
-    }
-  </style>
 </head>
 <body>
-  <div id="chat-container">
-    <div id="chat-body"></div>
-    <div id="chat-tail"></div>
+  <div id="chat-container" class="chat">
+    <div id="chat-body" class="chat__body"></div>
+    <div id="chat-tail" class="chat__tail"></div>
   </div>
   <script type="module" src="./chat-renderer.js"></script>
 </body>
