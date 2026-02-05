@@ -8,8 +8,8 @@ export interface AnimationStateMachine {
 	dispose(): void;
 }
 
-/** Phases that loop indefinitely. */
-const LOOPING_PHASES = new Set<AgentPhase>(["idle", "speaking"]);
+/** Phases that loop indefinitely (animation repeats until phase changes). */
+const LOOPING_PHASES = new Set<AgentPhase>(["speaking"]);
 
 const PHASE_TRANSITION_FADE = 0.5;
 const VARIETY_ROTATION_FADE = 0.3;
