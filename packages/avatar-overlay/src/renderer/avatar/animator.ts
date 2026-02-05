@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import type { VRM } from "@pixiv/three-vrm";
 import { createExpressionController, type Expression } from "./expressions.js";
-import { createLipSync } from "./lip-sync.js";
+import { createLipSync, type LipSync } from "./lip-sync.js";
 import { loadAnimationLibrary, type AnimationLibrary } from "./animation-loader.js";
 import { createStateMachine, type AnimationStateMachine } from "./state-machine.js";
 
@@ -18,6 +18,7 @@ export interface Animator {
 	stopLipSync(): void;
 	isSpeaking(): boolean;
 	initAnimations(clipPaths: Record<AgentPhase, string[]>): Promise<void>;
+	getLipSync(): LipSync;
 }
 
 export function createAnimator(vrm: VRM): Animator {
@@ -203,6 +204,10 @@ export function createAnimator(vrm: VRM): Animator {
 			} finally {
 				initPromise = null;
 			}
+		},
+
+		getLipSync(): LipSync {
+			return lipSync;
 		},
 	};
 }

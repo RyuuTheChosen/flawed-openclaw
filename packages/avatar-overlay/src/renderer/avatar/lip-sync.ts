@@ -1,12 +1,15 @@
 import type { VRM } from "@pixiv/three-vrm";
+import type { VisemeFrame } from "../audio/phoneme-mapper.js";
 
-type Viseme = "aa" | "ih" | "ou" | "ee" | "oh";
+export type Viseme = "aa" | "ih" | "ou" | "ee" | "oh";
+export type LipSyncMode = "text" | "audio";
 
 const ALL_VISEMES: Viseme[] = ["aa", "ih", "ou", "ee", "oh"];
 const CHAR_DURATION = 0.05; // 50ms per character
 const VISEME_LERP_SPEED = 15; // fast lerp for snappy mouth movement
 const NON_WORD_RE = /[^\w]/;
 const MAX_QUEUE_SIZE = 10_000;
+const MAX_VISEME_QUEUE = 100; // For audio mode
 
 const CHAR_TO_VISEME: Record<string, Viseme> = {
 	a: "aa", á: "aa", à: "aa",
@@ -22,67 +25,135 @@ export interface LipSync {
 	update(delta: number): void;
 	isSpeaking(): boolean;
 	setVrm(vrm: VRM): void;
+
+	// Audio mode API
+	setMode(mode: LipSyncMode): void;
+	getMode(): LipSyncMode;
+	feedVisemeFrames(frames: VisemeFrame[]): void;
+	clearQueue(): void;
 }
 
 export function createLipSync(vrm: VRM): LipSync {
 	let currentVrm = vrm;
-	let queue: string[] = [];
-	let readIndex = 0;
-	let timer = 0;
+	let mode: LipSyncMode = "text";
+
+	// Text mode state
+	let textQueue: string[] = [];
+	let textReadIndex = 0;
+	let textTimer = 0;
+
+	// Audio mode state
+	let visemeQueue: VisemeFrame[] = [];
+	let visemeTimer = 0;
+	let currentVisemeIndex = 0;
+
+	// Shared state
 	let activeViseme: Viseme | null = null;
 	const weights: Record<Viseme, number> = { aa: 0, ih: 0, ou: 0, ee: 0, oh: 0 };
 
-	function resetQueue(): void {
-		queue = [];
-		readIndex = 0;
-		timer = 0;
+	function resetTextQueue(): void {
+		textQueue = [];
+		textReadIndex = 0;
+		textTimer = 0;
+	}
+
+	function resetVisemeQueue(): void {
+		visemeQueue = [];
+		visemeTimer = 0;
+		currentVisemeIndex = 0;
+	}
+
+	function resetAll(): void {
+		resetTextQueue();
+		resetVisemeQueue();
 		activeViseme = null;
+	}
+
+	function updateTextMode(delta: number): void {
+		const remaining = textQueue.length - textReadIndex;
+
+		if (remaining > 0) {
+			textTimer += delta;
+			while (textTimer >= CHAR_DURATION && textReadIndex < textQueue.length) {
+				textTimer -= CHAR_DURATION;
+				const ch = textQueue[textReadIndex++].toLowerCase();
+				if (ch === " " || ch === "\n" || NON_WORD_RE.test(ch)) {
+					activeViseme = null;
+				} else {
+					activeViseme = CHAR_TO_VISEME[ch] ?? "aa";
+				}
+			}
+		}
+
+		// Queue fully consumed → close mouth, cap timer to prevent accumulation
+		if (textReadIndex >= textQueue.length) {
+			activeViseme = null;
+			textTimer = Math.min(textTimer, CHAR_DURATION);
+		}
+	}
+
+	function updateAudioMode(delta: number): void {
+		if (visemeQueue.length === 0 || currentVisemeIndex >= visemeQueue.length) {
+			activeViseme = null;
+			return;
+		}
+
+		visemeTimer += delta * 1000; // Convert to ms
+
+		// Advance through viseme frames based on their durations
+		while (currentVisemeIndex < visemeQueue.length) {
+			const frame = visemeQueue[currentVisemeIndex];
+			if (visemeTimer < frame.duration) {
+				// Still in current frame
+				activeViseme = frame.viseme;
+				break;
+			}
+			// Move to next frame
+			visemeTimer -= frame.duration;
+			currentVisemeIndex++;
+		}
+
+		// Queue exhausted
+		if (currentVisemeIndex >= visemeQueue.length) {
+			activeViseme = null;
+			// Clean up consumed frames
+			visemeQueue = [];
+			currentVisemeIndex = 0;
+			visemeTimer = 0;
+		}
 	}
 
 	return {
 		feedText(text: string): void {
 			// If queue was fully consumed, start fresh to avoid unbounded growth
-			if (readIndex > 0 && readIndex >= queue.length) {
-				queue = [];
-				readIndex = 0;
+			if (textReadIndex > 0 && textReadIndex >= textQueue.length) {
+				textQueue = [];
+				textReadIndex = 0;
 			}
-			const available = MAX_QUEUE_SIZE - (queue.length - readIndex);
+			const available = MAX_QUEUE_SIZE - (textQueue.length - textReadIndex);
 			if (text.length > available) {
-				queue.push(...[...text].slice(0, Math.max(0, available)));
+				textQueue.push(...[...text].slice(0, Math.max(0, available)));
 			} else {
-				queue.push(...text);
+				textQueue.push(...text);
 			}
 		},
 
 		stop(): void {
-			resetQueue();
+			resetAll();
 		},
 
 		update(delta: number): void {
 			const expr = currentVrm.expressionManager;
 			if (!expr) return;
 
-			const remaining = queue.length - readIndex;
-
-			if (remaining > 0) {
-				timer += delta;
-				while (timer >= CHAR_DURATION && readIndex < queue.length) {
-					timer -= CHAR_DURATION;
-					const ch = queue[readIndex++].toLowerCase();
-					if (ch === " " || ch === "\n" || NON_WORD_RE.test(ch)) {
-						activeViseme = null;
-					} else {
-						activeViseme = CHAR_TO_VISEME[ch] ?? "aa";
-					}
-				}
+			// Update based on current mode
+			if (mode === "text") {
+				updateTextMode(delta);
+			} else {
+				updateAudioMode(delta);
 			}
 
-			// Queue fully consumed → close mouth, cap timer to prevent accumulation
-			if (readIndex >= queue.length) {
-				activeViseme = null;
-				timer = Math.min(timer, CHAR_DURATION);
-			}
-
+			// Apply viseme weights with smooth lerping
 			const step = Math.min(delta * VISEME_LERP_SPEED, 1);
 			for (const v of ALL_VISEMES) {
 				const goal = v === activeViseme ? 0.8 : 0;
@@ -92,13 +163,52 @@ export function createLipSync(vrm: VRM): LipSync {
 		},
 
 		isSpeaking(): boolean {
-			return readIndex < queue.length;
+			if (mode === "text") {
+				return textReadIndex < textQueue.length;
+			}
+			return visemeQueue.length > 0 && currentVisemeIndex < visemeQueue.length;
 		},
 
 		setVrm(vrm: VRM): void {
 			currentVrm = vrm;
-			resetQueue();
+			resetAll();
 			for (const v of ALL_VISEMES) weights[v] = 0;
+		},
+
+		// Audio mode API
+		setMode(newMode: LipSyncMode): void {
+			if (mode === newMode) return;
+			mode = newMode;
+			// Clear the other mode's queue when switching
+			if (newMode === "text") {
+				resetVisemeQueue();
+			} else {
+				resetTextQueue();
+			}
+		},
+
+		getMode(): LipSyncMode {
+			return mode;
+		},
+
+		feedVisemeFrames(frames: VisemeFrame[]): void {
+			// Cap queue size to prevent unbounded growth
+			const available = MAX_VISEME_QUEUE - visemeQueue.length;
+			if (frames.length > available) {
+				// Drop oldest frames to make room
+				const toRemove = frames.length - available;
+				visemeQueue = visemeQueue.slice(toRemove);
+			}
+			visemeQueue.push(...frames);
+		},
+
+		clearQueue(): void {
+			if (mode === "text") {
+				resetTextQueue();
+			} else {
+				resetVisemeQueue();
+			}
+			activeViseme = null;
 		},
 	};
 }

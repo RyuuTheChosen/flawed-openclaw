@@ -35,4 +35,9 @@ export const IPC = {
 	GET_IDLE_TIMEOUT: "chat:get-idle-timeout",
 	SET_IDLE_TIMEOUT: "chat:set-idle-timeout",
 	IDLE_TIMEOUT_CHANGED: "chat:idle-timeout-changed",
+
+	// TTS settings
+	GET_TTS_ENABLED: "avatar:tts-get-enabled",
+	SET_TTS_ENABLED: "avatar:tts-set-enabled",
+	TTS_ENABLED_CHANGED: "avatar:tts-enabled-changed",
 } as const;

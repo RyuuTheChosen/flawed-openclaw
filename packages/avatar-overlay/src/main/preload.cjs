@@ -27,6 +27,10 @@ const IPC = {
 	GET_IDLE_TIMEOUT: "chat:get-idle-timeout",
 	SET_IDLE_TIMEOUT: "chat:set-idle-timeout",
 	IDLE_TIMEOUT_CHANGED: "chat:idle-timeout-changed",
+	// TTS
+	GET_TTS_ENABLED: "avatar:tts-get-enabled",
+	SET_TTS_ENABLED: "avatar:tts-set-enabled",
+	TTS_ENABLED_CHANGED: "avatar:tts-enabled-changed",
 };
 
 contextBridge.exposeInMainWorld("avatarBridge", {
@@ -143,6 +147,22 @@ contextBridge.exposeInMainWorld("avatarBridge", {
 		ipcRenderer.removeAllListeners(IPC.IDLE_TIMEOUT_CHANGED);
 		ipcRenderer.on(IPC.IDLE_TIMEOUT_CHANGED, (_event, ms) => {
 			callback(ms);
+		});
+	},
+
+	// TTS
+	getTtsEnabled() {
+		return ipcRenderer.invoke(IPC.GET_TTS_ENABLED);
+	},
+
+	setTtsEnabled(enabled) {
+		ipcRenderer.send(IPC.SET_TTS_ENABLED, enabled);
+	},
+
+	onTtsEnabledChanged(callback) {
+		ipcRenderer.removeAllListeners(IPC.TTS_ENABLED_CHANGED);
+		ipcRenderer.on(IPC.TTS_ENABLED_CHANGED, (_event, enabled) => {
+			callback(enabled);
 		});
 	},
 });

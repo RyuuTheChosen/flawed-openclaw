@@ -8,6 +8,7 @@ import {
 	OPACITY_DEFAULT,
 	IDLE_TIMEOUT_DEFAULT,
 	CHAT_MAX_HISTORY,
+	TTS_ENABLED_DEFAULT,
 } from "../../shared/config.js";
 
 export const SETTINGS_SCHEMA_VERSION = 1;
@@ -29,6 +30,7 @@ export const SettingsSchema = z.object({
 		.optional(),
 	opacity: z.number().min(OPACITY_MIN).max(OPACITY_MAX).default(OPACITY_DEFAULT),
 	idleTimeoutMs: z.number().int().min(0).default(IDLE_TIMEOUT_DEFAULT),
+	ttsEnabled: z.boolean().default(TTS_ENABLED_DEFAULT),
 });
 
 export type Settings = z.infer<typeof SettingsSchema>;
@@ -64,6 +66,7 @@ export function createDefaultSettings(): Settings {
 		camera: { zoom: CAMERA_ZOOM_DEFAULT },
 		opacity: OPACITY_DEFAULT,
 		idleTimeoutMs: IDLE_TIMEOUT_DEFAULT,
+		ttsEnabled: TTS_ENABLED_DEFAULT,
 	};
 }
 

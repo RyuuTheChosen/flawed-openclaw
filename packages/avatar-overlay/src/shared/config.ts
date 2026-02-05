@@ -60,3 +60,7 @@ export const CONTROL_BUTTON_SIZE = 28;
 export const SEND_BUTTON_SIZE = 32;
 export const ICON_SIZE = 16;
 export const INPUT_MAX_DISPLAY_CHARS = 100; // Show counter after this
+
+// === TTS Settings ===
+export const TTS_ENABLED_DEFAULT = false;
+export const TTS_RATE_DEFAULT = 1.0;

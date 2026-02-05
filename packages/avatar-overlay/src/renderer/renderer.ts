@@ -3,12 +3,14 @@ import type { VRM } from "@pixiv/three-vrm";
 import { createScene } from "./avatar/scene.js";
 import { loadVrmModel, unloadVrmModel } from "./avatar/vrm-loader.js";
 import { createAnimator, type Animator } from "./avatar/animator.js";
+import { createTTSController, type TTSController } from "./audio/index.js";
 import { CAMERA_ZOOM_STEP } from "../shared/config.js";
 
 const bridge = window.avatarBridge;
 
 let currentVrm: VRM | null = null;
 let animator: Animator | null = null;
+let ttsController: TTSController | null = null;
 
 async function boot(): Promise<void> {
 	const canvas = document.getElementById("avatar-canvas") as HTMLCanvasElement;
@@ -23,21 +25,32 @@ async function boot(): Promise<void> {
 				animator.setExpression("surprised");
 				animator.setPhase("thinking");
 				animator.stopLipSync();
+				ttsController?.cancel();
 				break;
 			case "speaking":
 				animator.setExpression("happy");
 				animator.setPhase("speaking");
-				if (state.text) animator.feedLipSyncText(state.text);
+				if (state.text) {
+					// If TTS is enabled, use audio-driven lip sync
+					if (ttsController?.isEnabled()) {
+						ttsController.queueText(state.text);
+					} else {
+						// Fallback to text-based lip sync
+						animator.feedLipSyncText(state.text);
+					}
+				}
 				break;
 			case "working":
 				animator.setExpression("relaxed");
 				animator.setPhase("working");
 				animator.stopLipSync();
+				ttsController?.cancel();
 				break;
 			case "idle":
 				animator.setExpression("neutral");
 				animator.setPhase("idle");
 				animator.stopLipSync();
+				ttsController?.cancel();
 				break;
 		}
 	});
@@ -59,6 +72,10 @@ async function boot(): Promise<void> {
 	const vrmPath = await bridge.getVrmPath();
 	currentVrm = await loadVrmModel(vrmPath, scene);
 	animator = createAnimator(currentVrm);
+
+	// Initialize TTS controller with persisted state
+	const ttsEnabled = await bridge.getTtsEnabled();
+	ttsController = createTTSController(animator.getLipSync(), ttsEnabled);
 
 	// Load animation clips (non-blocking, avatar shows procedural fallback while loading)
 	const animConfig = await bridge.getAnimationsConfig();
@@ -137,6 +154,35 @@ async function boot(): Promise<void> {
 	bridge.onChatVisibility((visible: boolean) => {
 		chatToggleBtn.classList.toggle("active", visible);
 	});
+
+	// TTS toggle button
+	const ttsToggleBtn = document.getElementById("tts-toggle-btn")!;
+
+	// Set initial button state
+	ttsToggleBtn.classList.toggle("active", ttsEnabled);
+
+	ttsToggleBtn.addEventListener("click", () => {
+		if (!ttsController) return;
+		const newEnabled = !ttsController.isEnabled();
+		ttsController.setEnabled(newEnabled);
+		ttsToggleBtn.classList.toggle("active", newEnabled);
+		bridge.setTtsEnabled(newEnabled);
+	});
+
+	// Update button state when TTS is enabled/disabled from elsewhere (e.g., context menu)
+	bridge.onTtsEnabledChanged((enabled: boolean) => {
+		if (ttsController) {
+			ttsController.setEnabled(enabled);
+		}
+		ttsToggleBtn.classList.toggle("active", enabled);
+	});
+
+	// Update speaking animation on TTS state change
+	if (ttsController) {
+		ttsController.onSpeakingChange((speaking: boolean) => {
+			ttsToggleBtn.classList.toggle("speaking", speaking);
+		});
+	}
 
 	// Animation loop
 	const clock = new THREE.Clock();

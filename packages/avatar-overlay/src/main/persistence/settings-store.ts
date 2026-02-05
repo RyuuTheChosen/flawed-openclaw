@@ -8,6 +8,7 @@ import {
 	OPACITY_DEFAULT,
 	IDLE_TIMEOUT_DEFAULT,
 	SETTINGS_DEBOUNCE_MS,
+	TTS_ENABLED_DEFAULT,
 } from "../../shared/config.js";
 import { createFileStore, type FileStore } from "./file-store.js";
 import {
@@ -101,6 +102,20 @@ export function getOpacity(): number {
 export function getIdleTimeout(): number {
 	const settings = getStore().getCache() ?? loadSettings();
 	return settings.idleTimeoutMs ?? IDLE_TIMEOUT_DEFAULT;
+}
+
+export function saveTtsEnabled(enabled: boolean): void {
+	const current = getStore().getCache() ?? loadSettings();
+	const updated: Settings = {
+		...current,
+		ttsEnabled: enabled,
+	};
+	getStore().save(updated);
+}
+
+export function getTtsEnabled(): boolean {
+	const settings = getStore().getCache() ?? loadSettings();
+	return settings.ttsEnabled ?? TTS_ENABLED_DEFAULT;
 }
 
 export async function flushSettings(): Promise<void> {

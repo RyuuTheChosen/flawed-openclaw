@@ -51,6 +51,11 @@ interface AvatarBridge {
 	getIdleTimeout(): Promise<number>;
 	setIdleTimeout(ms: number): void;
 	onIdleTimeoutChanged(callback: (ms: number) => void): void;
+
+	// TTS
+	getTtsEnabled(): Promise<boolean>;
+	setTtsEnabled(enabled: boolean): void;
+	onTtsEnabledChanged(callback: (enabled: boolean) => void): void;
 }
 
 interface Window {

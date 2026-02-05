@@ -16,10 +16,12 @@ import {
 	saveZoom,
 	saveOpacity,
 	saveIdleTimeout,
+	saveTtsEnabled,
 	getPosition,
 	getZoom,
 	getOpacity,
 	getIdleTimeout,
+	getTtsEnabled,
 	cleanupSettings,
 	migrateLegacyFiles,
 	getChatHistory,
@@ -127,6 +129,8 @@ export function createOverlayWindow(): BrowserWindow {
 	ipcMain.removeAllListeners(IPC.CLEAR_CHAT_HISTORY);
 	ipcMain.removeAllListeners(IPC.SET_IDLE_TIMEOUT);
 	ipcMain.removeAllListeners(IPC.SET_OPACITY);
+	ipcMain.removeHandler(IPC.GET_TTS_ENABLED);
+	ipcMain.removeAllListeners(IPC.SET_TTS_ENABLED);
 
 	// IPC: click-through toggle
 	ipcMain.on(IPC.SET_IGNORE_MOUSE, (_event, ignore: unknown) => {
@@ -199,6 +203,17 @@ export function createOverlayWindow(): BrowserWindow {
 		saveOpacity(clamped);
 		win.setOpacity(clamped);
 		win.webContents.send(IPC.OPACITY_CHANGED, clamped);
+	});
+
+	// IPC: TTS enabled
+	ipcMain.handle(IPC.GET_TTS_ENABLED, () => {
+		return getTtsEnabled();
+	});
+
+	ipcMain.on(IPC.SET_TTS_ENABLED, (_event, enabled: unknown) => {
+		if (typeof enabled !== "boolean") return;
+		saveTtsEnabled(enabled);
+		win.webContents.send(IPC.TTS_ENABLED_CHANGED, enabled);
 	});
 
 	// Helper functions for context menu actions
