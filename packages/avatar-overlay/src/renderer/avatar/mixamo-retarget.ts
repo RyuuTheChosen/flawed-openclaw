@@ -77,15 +77,22 @@ export function mixamoClipToVRMAnimation(
 	const sourceClip = fbxGroup.animations[0];
 	if (!sourceClip) return null;
 
-	// Compute hip position scale factor
+	// Compute hip height ratio for position scaling
 	const vrmHips = vrm.humanoid?.getNormalizedBoneNode("hips");
 	const mixamoHips = fbxGroup.getObjectByName("mixamorigHips");
-	const hipScale =
-		vrmHips && mixamoHips && mixamoHips.position.y !== 0
-			? vrmHips.position.y / mixamoHips.position.y
-			: 1;
+	const _vec3 = new THREE.Vector3();
+	const vrmHipsY = vrmHips ? vrmHips.getWorldPosition(_vec3).y : 1;
+	const vrmRootY = vrm.scene.getWorldPosition(_vec3).y;
+	const mixamoHipsY = mixamoHips ? mixamoHips.position.y : 1;
+	const hipScale = mixamoHipsY !== 0 ? (vrmHipsY - vrmRootY) / mixamoHipsY : 0.01;
 
 	const tracks: THREE.KeyframeTrack[] = [];
+	const restRotationInverse = new THREE.Quaternion();
+	const parentRestWorldRotation = new THREE.Quaternion();
+	const _quatA = new THREE.Quaternion();
+
+	// VRM 0.x uses different coordinate handedness than VRM 1.0
+	const isVrm0 = (vrm.meta as unknown as { metaVersion?: string })?.metaVersion === "0";
 
 	for (const track of sourceClip.tracks) {
 		// Track names are like "mixamorigHead.quaternion" or "mixamorigHips.position"
@@ -101,14 +108,22 @@ export function mixamoClipToVRMAnimation(
 		const vrmBoneNode = vrm.humanoid?.getNormalizedBoneNode(vrmBoneName as VRMHumanBoneName);
 		if (!vrmBoneNode) continue;
 
-		// Remap track to target VRM bone by uuid
-		const newTrackName = `${vrmBoneNode.uuid}.${property}`;
+		const mixamoBone = fbxGroup.getObjectByName(mixamoBoneName);
+		if (!mixamoBone || !mixamoBone.parent) continue;
+
+		const newTrackName = `${vrmBoneNode.name}.${property}`;
+
+		// Get WORLD rest quaternions (not local) — matches official three-vrm approach
+		mixamoBone.getWorldQuaternion(restRotationInverse).invert();
+		mixamoBone.parent.getWorldQuaternion(parentRestWorldRotation);
 
 		if (property === "position") {
-			// Scale position tracks (particularly hips) to match VRM proportions
+			// Scale position tracks to match VRM proportions
 			const values = new Float32Array(track.values.length);
-			for (let i = 0; i < track.values.length; i++) {
-				values[i] = track.values[i] * hipScale;
+			for (let i = 0; i < track.values.length; i += 3) {
+				values[i] = (isVrm0 ? -track.values[i] : track.values[i]) * hipScale;
+				values[i + 1] = track.values[i + 1] * hipScale;
+				values[i + 2] = (isVrm0 ? -track.values[i + 2] : track.values[i + 2]) * hipScale;
 			}
 			tracks.push(
 				new THREE.VectorKeyframeTrack(
@@ -118,18 +133,33 @@ export function mixamoClipToVRMAnimation(
 				),
 			);
 		} else if (property === "quaternion") {
+			// Convert from Mixamo bone space to VRM normalized bone space:
+			// result = parentRestWorldRot * trackQuat * restWorldRotInverse
+			const values = new Float32Array(track.values.length);
+			for (let i = 0; i < track.values.length; i += 4) {
+				_quatA.set(
+					track.values[i],
+					track.values[i + 1],
+					track.values[i + 2],
+					track.values[i + 3],
+				);
+				_quatA
+					.premultiply(parentRestWorldRotation)
+					.multiply(restRotationInverse);
+
+				values[i] = isVrm0 ? -_quatA.x : _quatA.x;
+				values[i + 1] = _quatA.y;
+				values[i + 2] = isVrm0 ? -_quatA.z : _quatA.z;
+				values[i + 3] = _quatA.w;
+			}
+
 			tracks.push(
 				new THREE.QuaternionKeyframeTrack(
 					newTrackName,
 					Array.from(track.times),
-					Array.from(track.values),
+					Array.from(values),
 				),
 			);
-		} else {
-			// scale or other properties
-			const cloned = track.clone();
-			cloned.name = newTrackName;
-			tracks.push(cloned);
 		}
 	}
 
