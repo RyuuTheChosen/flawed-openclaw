@@ -1,164 +1,230 @@
-```
-  _____ _                        _    ___                    ____ _
- |  ___| | __ ___      _____  __| |  / _ \ _ __   ___ _ __ / ___| | __ ___      __
- | |_  | |/ _` \ \ /\ / / _ \/ _` | | | | | '_ \ / _ \ '_ \ |   | |/ _` \ \ /\ / /
- |  _| | | (_| |\ V  V /  __/ (_| | | |_| | |_) |  __/ | | | |___| | (_| |\ V  V /
- |_|   |_|\__,_| \_/\_/ \___|\__,_|  \___/| .__/ \___|_| |_|\____|_|\__,_| \_/\_/
-                                           |_|
-```
+<p align="center">
+  <img src="README-header.png" alt="Flawed OpenClaw" width="600">
+</p>
 
-> **your local AI assistant, now with a face**
+<h3 align="center">your local AI assistant, now with a face</h3>
 
 <p align="center">
-  <a href="https://github.com/openclaw/openclaw"><img src="https://img.shields.io/badge/fork_of-openclaw%2Fopenclaw-orange?style=for-the-badge" alt="Fork of openclaw/openclaw"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="MIT License"></a>
-  <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/node-%E2%89%A522-339933?style=for-the-badge&logo=node.js&logoColor=white" alt="Node >= 22"></a>
-  <a href="https://www.electronjs.org/"><img src="https://img.shields.io/badge/Electron-33-47848F?style=for-the-badge&logo=electron&logoColor=white" alt="Electron"></a>
+  <a href="https://github.com/openclaw/openclaw"><img src="https://img.shields.io/badge/fork_of-openclaw%2Fopenclaw-orange?style=flat-square" alt="Fork of openclaw/openclaw"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT License"></a>
+  <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/node-%E2%89%A522-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node >= 22"></a>
+  <a href="https://www.electronjs.org/"><img src="https://img.shields.io/badge/electron-33-47848F?style=flat-square&logo=electron&logoColor=white" alt="Electron 33"></a>
+</p>
+
+<p align="center">
+  <a href="#avatar-overlay">Avatar</a> •
+  <a href="#local-llm-support">Local LLMs</a> •
+  <a href="#quick-start">Quick Start</a> •
+  <a href="#architecture">Architecture</a> •
+  <a href="#upstream">Upstream</a>
 </p>
 
 ---
 
 ## What is this?
 
-**Flawed OpenClaw** is a fork of [openclaw/openclaw](https://github.com/openclaw/openclaw) — the personal AI assistant you run on your own devices. This fork adds **local LLM support** (LM Studio + Ollama with auto-discovery) and a **3D avatar overlay** (VTuber-style floating companion powered by Electron + Three.js + VRM). Everything upstream still works; this just bolts on new tricks.
+**Flawed OpenClaw** is a fork of [openclaw/openclaw](https://github.com/openclaw/openclaw) — a personal AI assistant that runs on your own devices. This fork adds two features:
+
+1. **3D Avatar Overlay** — A VTuber-style floating companion that visualizes your assistant's state
+2. **Local LLM Support** — Run entirely offline with LM Studio or Ollama
+
+Everything upstream works as documented. This fork just bolts on new capabilities.
 
 ---
 
-## Fork Features
+## Avatar Overlay
 
-### Local LLM Onboarding
+A transparent Electron window that renders a VRM avatar using Three.js. The avatar reacts to your assistant's state in real-time.
 
-Run your assistant entirely offline. The onboarding wizard auto-discovers [LM Studio](https://lmstudio.ai/) and [Ollama](https://ollama.com/) instances on your network, configures provider routing, and sets zero-cost model entries — no API keys, no cloud, no drama.
+<!-- Screenshot placeholder: replace with actual screenshot -->
+<!--
+<p align="center">
+  <img src="docs/assets/avatar-overlay-demo.gif" alt="Avatar Overlay Demo" width="400">
+</p>
+-->
 
-- Auto-discovery of local LLM endpoints
-- Provider config for `lmstudio/*` and `ollama/*` model refs
-- 128k context window / 8192 max output tokens by default
-- Seamless fallback to cloud providers when local models are unavailable
+### Features
 
-### 3D Avatar Overlay
+| Feature | Description |
+|---------|-------------|
+| **State Machine** | 4-state FSM: idle → thinking → speaking → working |
+| **Animations** | Mixamo FBX clips with crossfade transitions and variety rotation |
+| **Expressions** | 6 blendable expressions (neutral, happy, sad, angry, surprised, relaxed) |
+| **Lip Sync** | Text-driven (50ms/char) or phoneme-driven via Kokoro TTS |
+| **TTS** | Kokoro (offline, phoneme-aware) or Web Speech API |
+| **Camera** | Zoom 0.5×–3.5× with presets (head, upper body, full body) |
+| **VRM Support** | Any VRM 0.x or 1.x model via `@pixiv/three-vrm` |
+| **Persistence** | Window position and camera zoom saved between sessions |
 
-A transparent, always-on-top Electron window that renders a VRM avatar using Three.js. Think VTuber companion that floats over your desktop while your assistant talks.
+### State Visualization
 
-- **VRM model support** via `@pixiv/three-vrm`
-- **Camera presets** — head (0.6), upper body (1.2), full body (3.0)
-- **Draggable + resizable** — 300x400 default, remembers position
-- **Zoom controls** — scroll to zoom (0.5x - 3.5x range)
-- **System tray** integration with quick controls
-- Ships with a default avatar (`assets/default-avatar.vrm`)
+The avatar maps agent lifecycle events to visual states:
+
+```
+lifecycle.start  →  thinking  →  surprised expression, thinking animation
+assistant.text   →  speaking  →  happy expression, lip sync active
+tool.*           →  working   →  relaxed expression, working animation
+lifecycle.end    →  idle      →  neutral expression, idle animation
+```
+
+### Usage
+
+```bash
+cd packages/avatar-overlay
+
+# Development (build + launch)
+pnpm dev
+
+# Production
+pnpm build && pnpm start
+```
+
+**Plugin commands:**
+- `/avatar-show` — Show overlay
+- `/avatar-hide` — Hide overlay
+
+**Custom avatars:** Place any `.vrm` file in `packages/avatar-overlay/assets/` and configure the path.
+
+---
+
+## Local LLM Support
+
+Run your assistant entirely offline with auto-discovery of local LLM backends.
+
+| Backend | Default Endpoint | Auto-discovered |
+|---------|------------------|-----------------|
+| [LM Studio](https://lmstudio.ai/) | `http://localhost:1234` | ✓ |
+| [Ollama](https://ollama.com/) | `http://localhost:11434` | ✓ |
+
+### Setup
+
+1. Run `pnpm openclaw onboard`
+2. Select **Local LLM** as your provider
+3. The wizard scans for running instances
+4. Pick your model from the discovered list
+
+Models are referenced as `lmstudio/<model-id>` or `ollama/<model-id>`. You can mix local and cloud providers — failover handles routing automatically.
+
+**Defaults:**
+- 128k context window
+- 8192 max output tokens
+- Zero-cost billing entries
+
+---
+
+## Quick Start
+
+**Prerequisites:** Node ≥ 22, pnpm, Git
+
+```bash
+# Clone
+git clone https://github.com/AhmadMayo/openclaw.git flawed-openclaw
+cd flawed-openclaw
+
+# Install
+pnpm install
+
+# Build
+pnpm build
+
+# Onboard
+pnpm openclaw onboard
+```
+
+The wizard walks through gateway setup, channel connections, model auth, and skills.
 
 ---
 
 ## Architecture
 
 ```
-                         Flawed OpenClaw
-  ┌──────────────────────────────────────────────────────┐
-  │                                                      │
-  │   ┌──────────────┐        ┌───────────────────────┐  │
-  │   │   Gateway     │        │   Avatar Overlay      │  │
-  │   │              │        │   (Electron window)    │  │
-  │   │  Channels:   │        │                       │  │
-  │   │  - WhatsApp  │        │  Three.js + VRM       │  │
-  │   │  - Telegram  │  IPC   │  ┌─────────────────┐  │  │
-  │   │  - Slack     │◄──────►│  │  Animator        │  │  │
-  │   │  - Discord   │        │  │  Scene           │  │  │
-  │   │  - ...       │        │  │  VRM Loader      │  │  │
-  │   │              │        │  └─────────────────┘  │  │
-  │   │  Models:     │        │                       │  │
-  │   │  - Cloud     │        │  System tray + drag   │  │
-  │   │  - LM Studio │        └───────────────────────┘  │
-  │   │  - Ollama    │                                   │
-  │   └──────────────┘                                   │
-  │                                                      │
-  └──────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                        Flawed OpenClaw                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌──────────────────┐          ┌─────────────────────────────┐  │
+│  │     Gateway      │          │      Avatar Overlay         │  │
+│  │                  │          │      (Electron + Three.js)  │  │
+│  │  Channels:       │          │                             │  │
+│  │  • WhatsApp      │    WS    │  ┌───────────────────────┐  │  │
+│  │  • Telegram      │◄────────►│  │ VRM Model             │  │  │
+│  │  • Slack         │          │  │ State Machine (FSM)   │  │  │
+│  │  • Discord       │          │  │ Expression Controller │  │  │
+│  │  • Signal        │          │  │ Lip Sync Engine       │  │  │
+│  │  • iMessage      │          │  │ TTS (Kokoro/Web)      │  │  │
+│  │  • Matrix        │          │  └───────────────────────┘  │  │
+│  │  • Line          │          │                             │  │
+│  │  • + more        │          │  System Tray + Drag/Resize  │  │
+│  │                  │          └─────────────────────────────┘  │
+│  │  Models:         │                                           │
+│  │  • Cloud APIs    │                                           │
+│  │  • LM Studio     │                                           │
+│  │  • Ollama        │                                           │
+│  └──────────────────┘                                           │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Package Structure
+
+```
+packages/
+├── avatar-overlay/     # Electron + Three.js avatar (this fork)
+├── clawdbot/           # Bot framework
+└── moltbot/            # Alternative bot implementation
 ```
 
 ---
 
-## Quick Start
+## Tech Stack
 
-> **Prerequisites:** Node >= 22, pnpm (recommended), Git
+### Avatar Overlay
 
-```bash
-# Clone the fork
-git clone https://github.com/AhmadMayo/openclaw.git flawed-openclaw
-cd flawed-openclaw
+| Component | Technology |
+|-----------|------------|
+| Runtime | Electron 33 |
+| 3D Engine | Three.js 0.170 |
+| VRM | @pixiv/three-vrm 3.x |
+| TTS | Kokoro-js 1.2 |
+| Bundler | Rolldown |
 
-# Install dependencies
-pnpm install
+### Core Platform
 
-# Build everything
-pnpm build
-
-# Run the onboarding wizard
-pnpm openclaw onboard
-```
-
-The wizard walks you through gateway setup, workspace config, channel connections, model auth (including local LLM discovery), and skills.
-
----
-
-## Avatar Overlay
-
-The avatar overlay lives in `packages/avatar-overlay/` and runs as a standalone Electron app.
-
-```bash
-# Build the overlay
-cd packages/avatar-overlay
-pnpm build
-
-# Launch it
-pnpm start
-
-# Or dev mode (build + launch)
-pnpm dev
-```
-
-**What it does:**
-- Opens a transparent, frameless, always-on-top window
-- Loads a VRM avatar model and renders it with Three.js
-- Provides idle animation and camera controls
-- Sits in your system tray for quick access
-- Remembers window position and camera zoom between sessions
-
-**Custom avatars:** drop any `.vrm` file into `packages/avatar-overlay/assets/` and update the config to point to it.
-
-<!-- screenshot placeholder: add a screenshot of the overlay here -->
-<!-- ![Avatar Overlay](docs/assets/avatar-overlay-screenshot.png) -->
-
----
-
-## Local LLM Setup
-
-### Supported backends
-
-| Backend | Default endpoint | Auto-discovered |
-|---------|-----------------|-----------------|
-| [LM Studio](https://lmstudio.ai/) | `http://localhost:1234` | Yes |
-| [Ollama](https://ollama.com/) | `http://localhost:11434` | Yes |
-
-### How it works
-
-1. Run `openclaw onboard` (or re-run auth setup)
-2. Select **Local LLM** as your provider
-3. The wizard scans for running LM Studio / Ollama instances
-4. Pick your model from the discovered list
-5. Config is written with zero-cost billing entries and sensible defaults
-
-Models are referenced as `lmstudio/<model-id>` or `ollama/<model-id>` in your config. You can mix local and cloud providers — the failover system handles routing automatically.
+| Component | Technology |
+|-----------|------------|
+| Runtime | Node.js ≥ 22 |
+| Language | TypeScript 5.9 |
+| Package Manager | pnpm 10 |
+| Linter | oxlint |
+| Formatter | oxfmt |
+| Test | Vitest |
 
 ---
 
 ## Upstream
 
-This fork is built on top of [**openclaw/openclaw**](https://github.com/openclaw/openclaw) by the OpenClaw team. All upstream features (channels, skills, canvas, voice, gateway) work as documented.
+This fork is built on [**openclaw/openclaw**](https://github.com/openclaw/openclaw).
 
-- Upstream repo: [github.com/openclaw/openclaw](https://github.com/openclaw/openclaw)
-- Docs: [docs.openclaw.ai](https://docs.openclaw.ai)
-- Discord: [discord.gg/clawd](https://discord.gg/clawd)
+- **Upstream:** [github.com/openclaw/openclaw](https://github.com/openclaw/openclaw)
+- **Docs:** [docs.openclaw.ai](https://docs.openclaw.ai)
+- **Discord:** [discord.gg/clawd](https://discord.gg/clawd)
+
+All upstream features (channels, skills, canvas, voice, gateway) work as documented.
+
+---
+
+## Fork Activity
+
+<a href="https://star-history.com/#AhmadMayo/openclaw&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=AhmadMayo/openclaw&type=Date&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=AhmadMayo/openclaw&type=Date" />
+    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=AhmadMayo/openclaw&type=Date" width="600" />
+  </picture>
+</a>
 
 ---
 
 ## License
 
-MIT -- same as upstream. See [LICENSE](LICENSE).
+MIT — same as upstream. See [LICENSE](LICENSE).
