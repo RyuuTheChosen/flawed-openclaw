@@ -118,7 +118,7 @@ Models are referenced as `lmstudio/<model-id>` or `ollama/<model-id>`. You can m
 
 ```bash
 # Clone
-git clone https://github.com/AhmadMayo/openclaw.git flawed-openclaw
+git clone https://github.com/RyuuTheChosen/flawed-openclaw.git
 cd flawed-openclaw
 
 # Install
@@ -215,11 +215,11 @@ All upstream features (channels, skills, canvas, voice, gateway) work as documen
 
 ## Fork Activity
 
-<a href="https://star-history.com/#AhmadMayo/openclaw&Date">
+<a href="https://star-history.com/#RyuuTheChosen/flawed-openclaw&Date">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=AhmadMayo/openclaw&type=Date&theme=dark" />
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=AhmadMayo/openclaw&type=Date" />
-    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=AhmadMayo/openclaw&type=Date" width="600" />
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=RyuuTheChosen/flawed-openclaw&type=Date&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=RyuuTheChosen/flawed-openclaw&type=Date" />
+    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=RyuuTheChosen/flawed-openclaw&type=Date" width="600" />
   </picture>
 </a>
 
