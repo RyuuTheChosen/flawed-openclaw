@@ -1,4 +1,5 @@
 export const IPC = {
+	// Avatar window
 	DRAG_MOVE: "avatar:drag-move",
 	SET_IGNORE_MOUSE: "avatar:set-ignore-mouse",
 	GET_VRM_PATH: "avatar:get-vrm-path",
@@ -12,8 +13,26 @@ export const IPC = {
 	SEND_CHAT: "avatar:send-chat",
 	TOGGLE_CHAT: "avatar:toggle-chat",
 	CHAT_VISIBILITY: "avatar:chat-visibility",
+
+	// Settings persistence
+	GET_SETTINGS: "avatar:get-settings",
+	SET_OPACITY: "avatar:set-opacity",
+	OPACITY_CHANGED: "avatar:opacity-changed",
+
+	// Chat window
 	SET_IGNORE_MOUSE_CHAT: "chat:set-ignore-mouse",
 	CHAT_CONTENT_HIDDEN: "chat:content-hidden",
 	CHAT_CONTENT_SHOWN: "chat:content-shown",
 	SHOW_CHAT_BUBBLE: "chat:show-bubble",
+
+	// Chat history persistence
+	GET_CHAT_HISTORY: "chat:get-history",
+	APPEND_CHAT_MESSAGE: "chat:append-message",
+	CLEAR_CHAT_HISTORY: "chat:clear-history",
+	CHAT_HISTORY_CLEARED: "chat:history-cleared",
+
+	// Idle timeout settings
+	GET_IDLE_TIMEOUT: "chat:get-idle-timeout",
+	SET_IDLE_TIMEOUT: "chat:set-idle-timeout",
+	IDLE_TIMEOUT_CHANGED: "chat:idle-timeout-changed",
 } as const;
