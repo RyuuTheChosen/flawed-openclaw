@@ -47,16 +47,19 @@ export function createGatewayClient(
 	let connectNonce: string | null = null;
 	let connectSent = false;
 	let connectTimer: ReturnType<typeof setTimeout> | null = null;
-	let currentAgentId: string | null = null;
+	let currentSessionKey: string | null = null;
+	// Track pending request IDs to match responses
+	let sessionsListRequestId: string | null = null;
+	let agentsListRequestId: string | null = null;
 
 	function processAgentEvent(evt: AgentEventPayload): void {
 		const { stream, data, sessionKey } = evt;
 		console.log("avatar-overlay: agent event received:", JSON.stringify(evt));
 
-		// Track agent changes for per-agent VRM switching
-		if (sessionKey && sessionKey !== currentAgentId) {
-			console.log("avatar-overlay: setting currentAgentId to:", sessionKey);
-			currentAgentId = sessionKey;
+		// Track session changes - agent events contain the actual sessionKey
+		if (sessionKey && sessionKey !== currentSessionKey) {
+			console.log("avatar-overlay: setting currentSessionKey from agent event:", sessionKey);
+			currentSessionKey = sessionKey;
 			if (agentConfigs?.[sessionKey]?.vrmPath) {
 				onModelSwitch(agentConfigs[sessionKey].vrmPath!);
 			}
@@ -104,35 +107,58 @@ export function createGatewayClient(
 				return;
 			}
 
-			// Response frames (for our connect request or agent list)
+			// Response frames (for our connect request, sessions list, or agents list)
 			if (parsed?.type === "res") {
 				const res = parsed as ResponseFrame;
 				if (res.ok) {
 					const payload = res.payload as Record<string, unknown> | undefined;
-					// Check if this is an agents list response
-					if (payload?.agents && Array.isArray(payload.agents)) {
-						const agents = payload.agents as Array<Record<string, unknown>>;
-						if (agents.length > 0 && !currentAgentId) {
-							// Use first agent's sessionKey as default
-							const firstAgent = agents[0];
-							const sessionKey = firstAgent.sessionKey ?? firstAgent.id ?? `agent:${firstAgent.name}:main`;
-							if (typeof sessionKey === "string") {
-								currentAgentId = sessionKey;
-								console.log("avatar-overlay: auto-detected agent:", currentAgentId);
+
+					// Check if this is a sessions.list response
+					if (res.id === sessionsListRequestId && payload?.sessions && Array.isArray(payload.sessions)) {
+						sessionsListRequestId = null;
+						const sessions = payload.sessions as Array<{ key?: string; updatedAt?: number; displayName?: string }>;
+						if (sessions.length > 0 && !currentSessionKey) {
+							// Use the most recently active session (sessions are sorted by activity)
+							const firstSession = sessions[0];
+							if (firstSession.key) {
+								currentSessionKey = firstSession.key;
+								console.log("avatar-overlay: auto-detected session from sessions.list:", currentSessionKey, "displayName:", firstSession.displayName);
 							}
 						}
 					}
-					// Connect success
-					if (connectSent) {
+
+					// Check if this is an agents list response (fallback)
+					if (res.id === agentsListRequestId && payload?.agents && Array.isArray(payload.agents)) {
+						agentsListRequestId = null;
+						const agents = payload.agents as Array<Record<string, unknown>>;
+						if (agents.length > 0 && !currentSessionKey) {
+							// Use first agent's main session key as fallback
+							const firstAgent = agents[0];
+							const agentId = firstAgent.id ?? "main";
+							const sessionKey = `agent:${agentId}:main`;
+							currentSessionKey = sessionKey;
+							console.log("avatar-overlay: fallback to agent main session:", currentSessionKey);
+						}
+					}
+
+					// Connect success - request active sessions first
+					if (connectSent && !sessionsListRequestId && !agentsListRequestId) {
 						console.log("avatar-overlay: gateway connected successfully");
 						backoffMs = GATEWAY_RECONNECT_BASE_MS;
-						// Request agents list if we don't have one yet
-						if (!currentAgentId) {
-							requestAgentsList();
+						// Request recently active sessions first
+						if (!currentSessionKey) {
+							requestSessionsList();
 						}
 					}
 				} else {
 					console.error("avatar-overlay: gateway response error:", res.error?.message ?? "unknown");
+					// If sessions.list failed, fall back to agents.list
+					if (res.id === sessionsListRequestId) {
+						sessionsListRequestId = null;
+						if (!currentSessionKey) {
+							requestAgentsList();
+						}
+					}
 				}
 			}
 		} catch {
@@ -180,15 +206,35 @@ export function createGatewayClient(
 		connectTimer = setTimeout(() => sendConnect(), 750);
 	}
 
-	function requestAgentsList(): void {
+	function requestSessionsList(): void {
 		if (!ws || ws.readyState !== WebSocket.OPEN) return;
+		sessionsListRequestId = randomUUID();
 		const frame = {
 			type: "req",
-			id: randomUUID(),
+			id: sessionsListRequestId,
+			method: "sessions.list",
+			params: {
+				// Get recently active sessions (within last 60 minutes)
+				activeMinutes: 60,
+				includeGlobal: false,
+				includeUnknown: false,
+				limit: 10,
+			},
+		};
+		console.log("avatar-overlay: requesting sessions list");
+		ws.send(JSON.stringify(frame));
+	}
+
+	function requestAgentsList(): void {
+		if (!ws || ws.readyState !== WebSocket.OPEN) return;
+		agentsListRequestId = randomUUID();
+		const frame = {
+			type: "req",
+			id: agentsListRequestId,
 			method: "agents.list",
 			params: {},
 		};
-		console.log("avatar-overlay: requesting agents list");
+		console.log("avatar-overlay: requesting agents list (fallback)");
 		ws.send(JSON.stringify(frame));
 	}
 
@@ -240,8 +286,8 @@ export function createGatewayClient(
 		},
 
 		sendChat(text: string, sessionKey: string | null) {
-			// Use provided sessionKey, or fall back to auto-detected agent, or default
-			const effectiveSessionKey = sessionKey ?? currentAgentId ?? "agent:main:main";
+			// Use provided sessionKey, or fall back to auto-detected session, or default
+			const effectiveSessionKey = sessionKey ?? currentSessionKey ?? "agent:main:main";
 			console.log("avatar-overlay: sendChat called, ws state:", ws?.readyState, "sessionKey:", effectiveSessionKey);
 			if (!ws || ws.readyState !== WebSocket.OPEN) {
 				console.log("avatar-overlay: WebSocket not open, message dropped");
@@ -262,7 +308,7 @@ export function createGatewayClient(
 		},
 
 		getCurrentAgentId() {
-			return currentAgentId;
+			return currentSessionKey;
 		},
 	};
 }
