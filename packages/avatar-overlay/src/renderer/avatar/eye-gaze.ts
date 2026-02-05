@@ -63,6 +63,15 @@ function getHeadBone(vrm: VRM): THREE.Object3D | null {
 	return null;
 }
 
+/**
+ * Check if this is a VRM 0.x model (vs VRM 1.0).
+ * VRM 0.x models may have different bone orientation conventions.
+ */
+function isVrm0(vrm: VRM): boolean {
+	// metaVersion is "0" for VRM 0.x, "1" for VRM 1.0
+	return vrm.meta?.metaVersion === "0";
+}
+
 export function createEyeGazeController(
 	vrm: VRM,
 	config?: EyeGazeConfig,
@@ -82,6 +91,7 @@ export function createEyeGazeController(
 	const idleTimeout = config?.idleTimeout ?? DEFAULT_IDLE_TIMEOUT;
 
 	let currentVrm = vrm;
+	let pitchInverted = isVrm0(vrm); // VRM 0.x needs inverted pitch
 
 	// Eye state (degrees for VRM lookAt)
 	let targetEyeYaw = 0;
@@ -156,13 +166,14 @@ export function createEyeGazeController(
 			const normalizedX = (x / windowWidth) * 2 - 1;
 			const normalizedY = (y / windowHeight) * 2 - 1;
 
+			// Pitch direction depends on VRM version due to different bone orientations
+			const pitchSign = pitchInverted ? -1 : 1;
+
 			// Head targets (radians, for bone rotation)
-			// Positive X rotation = head tilts forward (looks down)
-			// So mouse up (negative normalizedY) should give positive pitch to look up
 			targetHeadYaw =
 				normalizedX * headYawLimit * DEG_TO_RAD * trackingMultiplier;
 			targetHeadPitch =
-				normalizedY * headPitchLimit * DEG_TO_RAD * trackingMultiplier;
+				pitchSign * normalizedY * headPitchLimit * DEG_TO_RAD * trackingMultiplier;
 
 			// Clamp head
 			targetHeadYaw = Math.max(
@@ -175,8 +186,9 @@ export function createEyeGazeController(
 			);
 
 			// Eye targets (degrees, for VRM lookAt)
+			// VRM lookAt: positive pitch = looking up
 			targetEyeYaw = normalizedX * eyeYawLimit * trackingMultiplier;
-			targetEyePitch = -normalizedY * eyePitchLimit * trackingMultiplier;
+			targetEyePitch = -pitchSign * normalizedY * eyePitchLimit * trackingMultiplier;
 
 			// Clamp eyes
 			targetEyeYaw = Math.max(-eyeYawLimit, Math.min(eyeYawLimit, targetEyeYaw));
@@ -194,6 +206,7 @@ export function createEyeGazeController(
 
 		setVrm(newVrm: VRM): void {
 			currentVrm = newVrm;
+			pitchInverted = isVrm0(newVrm); // Recalculate for new model
 			// Reset state on VRM change
 			currentEyeYaw = 0;
 			currentEyePitch = 0;
