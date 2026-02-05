@@ -50,9 +50,6 @@ export function createTTSService(events: TTSEvents): TTSService {
 	let speaking = false;
 	let disposed = false;
 
-	// Track full text for boundary event word extraction
-	let currentFullText = "";
-
 	function cleanupUtterance(): void {
 		if (currentUtterance) {
 			// Remove all listeners to prevent memory leaks
@@ -66,6 +63,8 @@ export function createTTSService(events: TTSEvents): TTSService {
 
 	function createUtterance(text: string): SpeechSynthesisUtterance {
 		const utterance = new SpeechSynthesisUtterance(text);
+		// Capture the utterance text for boundary events (charIndex is relative to this)
+		const utteranceText = text;
 
 		// Use system default voice and rate
 		utterance.rate = 1.0;
@@ -98,9 +97,19 @@ export function createTTSService(events: TTSEvents): TTSService {
 		utterance.onboundary = (e) => {
 			if (disposed) return;
 			if (e.name === "word") {
-				// Extract the word from the text using charIndex and charLength
-				const word = currentFullText.slice(e.charIndex, e.charIndex + (e.charLength || 1));
-				events.onBoundary(word, e.charIndex, e.charLength || word.length);
+				// Extract word from the utterance's own text (charIndex is relative to utterance)
+				let word: string;
+				if (e.charLength && e.charLength > 0) {
+					word = utteranceText.slice(e.charIndex, e.charIndex + e.charLength);
+				} else {
+					// charLength not provided - find word boundary manually
+					const afterIndex = utteranceText.slice(e.charIndex);
+					const match = afterIndex.match(/^[\w'-]+/);
+					word = match ? match[0] : afterIndex.slice(0, 1);
+				}
+				if (word.trim()) {
+					events.onBoundary(word.trim(), e.charIndex, word.length);
+				}
 			}
 		};
 
@@ -115,7 +124,6 @@ export function createTTSService(events: TTSEvents): TTSService {
 			synth.cancel();
 			cleanupUtterance();
 
-			currentFullText = text;
 			currentUtterance = createUtterance(text);
 			synth.speak(currentUtterance);
 		},
@@ -131,7 +139,6 @@ export function createTTSService(events: TTSEvents): TTSService {
 
 			// Update tracking
 			lastSpokenIndex = fullText.length;
-			currentFullText = fullText;
 
 			// If currently speaking, queue the new text
 			// Otherwise start fresh
@@ -156,7 +163,6 @@ export function createTTSService(events: TTSEvents): TTSService {
 
 		resetSpokenIndex(): void {
 			lastSpokenIndex = 0;
-			currentFullText = "";
 		},
 
 		dispose(): void {
