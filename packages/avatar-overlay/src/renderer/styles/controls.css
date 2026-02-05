@@ -1,30 +1,107 @@
+/**
+ * Avatar Controls Styles
+ * Uses BEM naming convention and button component
+ */
+
 @import "./tokens.css";
+@import "./components/button.css";
 
 /* Backdrop-filter fallback for unsupported browsers */
 @supports not (backdrop-filter: blur(1px)) {
+  .controls__btn {
+    background: var(--glass-bg-solid) !important;
+  }
+
+  /* Legacy support */
   #controls button {
     background: var(--glass-bg-solid) !important;
   }
 }
 
-#controls {
+/* === Controls Container === */
+.controls {
   position: absolute;
-  top: var(--space-xs);
-  right: var(--space-md);
+  top: var(--space-1);
+  inset-inline-end: var(--space-2);
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+  gap: var(--space-1);
   opacity: 0;
   transition: opacity var(--transition-slow);
   pointer-events: none;
-  z-index: 10;
+  z-index: var(--z-dropdown);
 }
 
+/* Legacy ID support */
+#controls {
+  position: absolute;
+  top: var(--space-1);
+  inset-inline-end: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  opacity: 0;
+  transition: opacity var(--transition-slow);
+  pointer-events: none;
+  z-index: var(--z-dropdown);
+}
+
+/* Show on hover */
+body:hover .controls,
+.controls:focus-within {
+  opacity: 1;
+}
+
+/* Legacy support */
 body:hover #controls,
 #controls:focus-within {
   opacity: 1;
 }
 
+/* === Control Button === */
+.controls__btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--surface-button);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: rgba(255, 255, 255, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  pointer-events: auto;
+  padding: 0;
+  transition:
+    background var(--transition-normal),
+    color var(--transition-normal),
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.controls__btn:hover {
+  background: var(--surface-button-hover);
+  color: var(--text-primary);
+  transform: scale(1.05);
+}
+
+.controls__btn:active {
+  transform: scale(0.95);
+}
+
+.controls__btn:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+}
+
+.controls__btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Legacy support */
 #controls button {
   width: 28px;
   height: 28px;
@@ -43,7 +120,8 @@ body:hover #controls,
   transition:
     background var(--transition-normal),
     color var(--transition-normal),
-    transform var(--transition-fast);
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
 }
 
 #controls button:hover {
@@ -66,6 +144,16 @@ body:hover #controls,
   height: 14px;
 }
 
+/* === Drag Handle === */
+.controls__drag-handle {
+  cursor: grab;
+}
+
+.controls__drag-handle:active {
+  cursor: grabbing;
+}
+
+/* Legacy support */
 #drag-handle {
   cursor: grab;
 }
@@ -74,13 +162,55 @@ body:hover #controls,
   cursor: grabbing;
 }
 
+/* === Active State === */
+.controls__btn.is-active {
+  background: var(--accent-blue-soft);
+  color: var(--accent-blue);
+  box-shadow: var(--shadow-glow);
+}
+
+/* Chat toggle */
+.controls__chat-toggle.is-active {
+  background: var(--accent-blue-soft);
+  color: var(--accent-blue);
+  box-shadow: var(--shadow-glow);
+}
+
+/* Legacy support */
 #chat-toggle-btn.active {
   background: var(--accent-blue-soft);
   color: var(--accent-blue);
   box-shadow: var(--shadow-glow);
 }
 
-/* TTS toggle button */
+/* === TTS Toggle === */
+.controls__tts-toggle .icon-on {
+  display: none;
+}
+
+.controls__tts-toggle .icon-off {
+  display: block;
+}
+
+.controls__tts-toggle.is-active .icon-on {
+  display: block;
+}
+
+.controls__tts-toggle.is-active .icon-off {
+  display: none;
+}
+
+.controls__tts-toggle.is-active {
+  background: var(--accent-blue-soft);
+  color: var(--accent-blue);
+  box-shadow: var(--shadow-glow);
+}
+
+.controls__tts-toggle.is-speaking {
+  animation: tts-pulse 1.5s ease-in-out infinite;
+}
+
+/* Legacy support */
 #tts-toggle-btn .icon-on {
   display: none;
 }
@@ -104,10 +234,44 @@ body:hover #controls,
 }
 
 #tts-toggle-btn.speaking {
-  animation: ttsPulse 1.5s ease-in-out infinite;
+  animation: tts-pulse 1.5s ease-in-out infinite;
 }
 
-@keyframes ttsPulse {
-  0%, 100% { box-shadow: var(--shadow-glow); }
-  50% { box-shadow: 0 0 16px var(--accent-blue-glow); }
+@keyframes tts-pulse {
+  0%,
+  100% {
+    box-shadow: var(--shadow-glow);
+  }
+  50% {
+    box-shadow: var(--glow-blue-md);
+  }
+}
+
+/* === Responsive Design === */
+@media (max-width: 480px) {
+  .controls,
+  #controls {
+    top: var(--space-2);
+    inset-inline-end: var(--space-2);
+  }
+
+  .controls__btn,
+  #controls button {
+    width: 32px;
+    height: 32px;
+  }
+
+  .controls__btn svg,
+  #controls button svg {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+/* === Forced Colors Mode === */
+@media (forced-colors: active) {
+  .controls__btn,
+  #controls button {
+    border: 2px solid currentColor;
+  }
 }

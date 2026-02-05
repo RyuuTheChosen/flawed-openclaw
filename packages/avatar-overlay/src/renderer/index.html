@@ -6,7 +6,7 @@
   <title>OpenClaw Avatar</title>
   <link rel="stylesheet" href="./styles/controls.css" />
   <style>
-    * { margin: 0; padding: 0; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
       width: 100%;
       height: 100%;
@@ -21,20 +21,20 @@
   </style>
 </head>
 <body>
-  <div id="controls">
-    <button id="drag-handle" title="Drag to move" aria-label="Drag to reposition window">
+  <div id="controls" class="controls">
+    <button id="drag-handle" class="controls__btn controls__drag-handle" title="Drag to move" aria-label="Drag to reposition window">
       <svg viewBox="0 0 16 16" fill="currentColor" stroke="none" aria-hidden="true">
         <circle cx="5" cy="4" r="1"/><circle cx="11" cy="4" r="1"/>
         <circle cx="5" cy="8" r="1"/><circle cx="11" cy="8" r="1"/>
         <circle cx="5" cy="12" r="1"/><circle cx="11" cy="12" r="1"/>
       </svg>
     </button>
-    <button id="chat-toggle-btn" title="Toggle chat" aria-label="Toggle chat window">
+    <button id="chat-toggle-btn" class="controls__btn controls__chat-toggle" title="Toggle chat" aria-label="Toggle chat window">
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M2.5 3.5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-5l-3.5 2.5v-2.5h-.5a1 1 0 0 1-1-1v-6z"/>
       </svg>
     </button>
-    <button id="tts-toggle-btn" title="Toggle voice (TTS)" aria-label="Toggle text-to-speech">
+    <button id="tts-toggle-btn" class="controls__btn controls__tts-toggle" title="Toggle voice (TTS)" aria-label="Toggle text-to-speech">
       <!-- Speaker off icon (default) -->
       <svg class="icon-off" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M8 3L4.5 6H2.5a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h2L8 13V3z"/>
@@ -47,7 +47,7 @@
         <path d="M12.5 3.5a6 6 0 0 1 0 9"/>
       </svg>
     </button>
-    <button id="settings-btn" title="Settings" aria-label="Open settings">
+    <button id="settings-btn" class="controls__btn controls__settings" title="Settings" aria-label="Open settings">
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <circle cx="8" cy="8" r="2"/>
         <path d="M8 1v2M8 13v2M1 8h2M13 8h2M2.9 2.9l1.4 1.4M11.7 11.7l1.4 1.4M2.9 13.1l1.4-1.4M11.7 4.3l1.4-1.4"/>
