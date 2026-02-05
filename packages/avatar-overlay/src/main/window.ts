@@ -1,79 +1,39 @@
 import { BrowserWindow, Menu, app, dialog, ipcMain, screen } from "electron";
-import * as fs from "node:fs";
 import * as path from "node:path";
-import * as os from "node:os";
 import { fileURLToPath } from "node:url";
 import {
 	WINDOW_WIDTH,
 	WINDOW_HEIGHT,
-	WINDOW_POSITION_FILE,
-	CAMERA_ZOOM_DEFAULT,
 	CAMERA_ZOOM_MIN,
 	CAMERA_ZOOM_MAX,
-	CAMERA_ZOOM_FILE,
 	CAMERA_PRESETS,
+	IDLE_TIMEOUT_OPTIONS,
 } from "../shared/config.js";
 import { IPC } from "../shared/ipc-channels.js";
+import {
+	loadSettings,
+	savePosition,
+	saveZoom,
+	saveOpacity,
+	saveIdleTimeout,
+	getPosition,
+	getZoom,
+	getOpacity,
+	getIdleTimeout,
+	cleanupSettings,
+	migrateLegacyFiles,
+	getChatHistory,
+	appendMessage,
+	clearChatHistory,
+	cleanupChat,
+	type ChatMessage,
+} from "./persistence/index.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const openclawDir = path.join(os.homedir(), ".openclaw");
-const positionFile = path.join(openclawDir, WINDOW_POSITION_FILE);
-const zoomFile = path.join(openclawDir, CAMERA_ZOOM_FILE);
-
-let saveTimeout: ReturnType<typeof setTimeout> | null = null;
-let zoomSaveTimeout: ReturnType<typeof setTimeout> | null = null;
-
-function loadPosition(): { x: number; y: number } | null {
-	try {
-		const data = fs.readFileSync(positionFile, "utf-8");
-		const pos = JSON.parse(data) as { x: number; y: number };
-		if (typeof pos.x === "number" && typeof pos.y === "number") {
-			return pos;
-		}
-	} catch {
-		// No saved position or invalid file — use default
-	}
-	return null;
-}
-
-function savePosition(x: number, y: number): void {
-	if (saveTimeout) clearTimeout(saveTimeout);
-	saveTimeout = setTimeout(() => {
-		try {
-			fs.mkdirSync(openclawDir, { recursive: true });
-			fs.writeFileSync(positionFile, JSON.stringify({ x, y }));
-		} catch {
-			// Silently ignore write errors
-		}
-	}, 500);
-}
-
-function loadZoom(): number {
-	try {
-		const data = fs.readFileSync(zoomFile, "utf-8");
-		const parsed = JSON.parse(data) as { zoom: number };
-		if (typeof parsed.zoom === "number" && parsed.zoom >= CAMERA_ZOOM_MIN && parsed.zoom <= CAMERA_ZOOM_MAX) {
-			return parsed.zoom;
-		}
-	} catch {
-		// No saved zoom or invalid file — use default
-	}
-	return CAMERA_ZOOM_DEFAULT;
-}
-
-function saveZoom(zoom: number): void {
-	if (zoomSaveTimeout) clearTimeout(zoomSaveTimeout);
-	zoomSaveTimeout = setTimeout(() => {
-		try {
-			fs.mkdirSync(openclawDir, { recursive: true });
-			fs.writeFileSync(zoomFile, JSON.stringify({ zoom }));
-		} catch {
-			// Silently ignore write errors
-		}
-	}, 500);
-}
+// Run migration on module load
+migrateLegacyFiles();
 
 function getDefaultPosition(): { x: number; y: number } {
 	const display = screen.getPrimaryDisplay();
@@ -82,6 +42,23 @@ function getDefaultPosition(): { x: number; y: number } {
 		x: width - WINDOW_WIDTH - 20,
 		y: height - WINDOW_HEIGHT - 20,
 	};
+}
+
+function getSnapPosition(corner: "bottomRight" | "bottomLeft" | "topRight" | "topLeft"): { x: number; y: number } {
+	const display = screen.getPrimaryDisplay();
+	const { width, height } = display.workAreaSize;
+	const margin = 20;
+
+	switch (corner) {
+		case "bottomRight":
+			return { x: width - WINDOW_WIDTH - margin, y: height - WINDOW_HEIGHT - margin };
+		case "bottomLeft":
+			return { x: margin, y: height - WINDOW_HEIGHT - margin };
+		case "topRight":
+			return { x: width - WINDOW_WIDTH - margin, y: margin };
+		case "topLeft":
+			return { x: margin, y: margin };
+	}
 }
 
 export async function showVrmPicker(win: BrowserWindow): Promise<void> {
@@ -98,8 +75,9 @@ export async function showVrmPicker(win: BrowserWindow): Promise<void> {
 }
 
 export function createOverlayWindow(): BrowserWindow {
-	const saved = loadPosition();
-	const pos = saved ?? getDefaultPosition();
+	// Load persisted settings
+	loadSettings();
+	const pos = getPosition() ?? getDefaultPosition();
 
 	const win = new BrowserWindow({
 		width: WINDOW_WIDTH,
@@ -119,6 +97,9 @@ export function createOverlayWindow(): BrowserWindow {
 		},
 	});
 
+	// Apply persisted opacity
+	win.setOpacity(getOpacity());
+
 	win.loadFile(path.join(__dirname, "..", "..", "renderer-bundle", "index.html"));
 
 	// Persist position on move
@@ -127,10 +108,10 @@ export function createOverlayWindow(): BrowserWindow {
 		savePosition(x, y);
 	});
 
-	// Clean up pending save timeouts on close
+	// Clean up persistence on close
 	win.on("close", () => {
-		if (saveTimeout) clearTimeout(saveTimeout);
-		if (zoomSaveTimeout) clearTimeout(zoomSaveTimeout);
+		cleanupSettings();
+		cleanupChat();
 	});
 
 	// Clean up previous IPC handlers (safe for window re-creation)
@@ -139,6 +120,13 @@ export function createOverlayWindow(): BrowserWindow {
 	ipcMain.removeHandler(IPC.GET_CAMERA_ZOOM);
 	ipcMain.removeAllListeners(IPC.SAVE_CAMERA_ZOOM);
 	ipcMain.removeAllListeners(IPC.SHOW_CONTEXT_MENU);
+	ipcMain.removeHandler(IPC.GET_SETTINGS);
+	ipcMain.removeHandler(IPC.GET_CHAT_HISTORY);
+	ipcMain.removeHandler(IPC.GET_IDLE_TIMEOUT);
+	ipcMain.removeAllListeners(IPC.APPEND_CHAT_MESSAGE);
+	ipcMain.removeAllListeners(IPC.CLEAR_CHAT_HISTORY);
+	ipcMain.removeAllListeners(IPC.SET_IDLE_TIMEOUT);
+	ipcMain.removeAllListeners(IPC.SET_OPACITY);
 
 	// IPC: click-through toggle
 	ipcMain.on(IPC.SET_IGNORE_MOUSE, (_event, ignore: unknown) => {
@@ -156,7 +144,7 @@ export function createOverlayWindow(): BrowserWindow {
 
 	// IPC: camera zoom persistence
 	ipcMain.handle(IPC.GET_CAMERA_ZOOM, () => {
-		return loadZoom();
+		return getZoom();
 	});
 
 	ipcMain.on(IPC.SAVE_CAMERA_ZOOM, (_event, zoom: unknown) => {
@@ -166,44 +154,196 @@ export function createOverlayWindow(): BrowserWindow {
 		}
 	});
 
+	// IPC: get full settings
+	ipcMain.handle(IPC.GET_SETTINGS, () => {
+		return {
+			opacity: getOpacity(),
+			idleTimeoutMs: getIdleTimeout(),
+			zoom: getZoom(),
+			position: getPosition(),
+		};
+	});
+
+	// IPC: chat history
+	ipcMain.handle(IPC.GET_CHAT_HISTORY, () => {
+		return getChatHistory();
+	});
+
+	ipcMain.on(IPC.APPEND_CHAT_MESSAGE, (_event, role: unknown, text: unknown, agentId?: unknown) => {
+		if (typeof role !== "string" || (role !== "user" && role !== "assistant")) return;
+		if (typeof text !== "string" || text.length === 0) return;
+		const aid = typeof agentId === "string" ? agentId : undefined;
+		appendMessage(role, text, aid);
+	});
+
+	ipcMain.on(IPC.CLEAR_CHAT_HISTORY, () => {
+		clearChatHistory();
+		win.webContents.send(IPC.CHAT_HISTORY_CLEARED);
+	});
+
+	// IPC: idle timeout
+	ipcMain.handle(IPC.GET_IDLE_TIMEOUT, () => {
+		return getIdleTimeout();
+	});
+
+	ipcMain.on(IPC.SET_IDLE_TIMEOUT, (_event, ms: unknown) => {
+		if (typeof ms !== "number" || !Number.isInteger(ms) || ms < 0) return;
+		saveIdleTimeout(ms);
+		win.webContents.send(IPC.IDLE_TIMEOUT_CHANGED, ms);
+	});
+
+	// IPC: opacity
+	ipcMain.on(IPC.SET_OPACITY, (_event, opacity: unknown) => {
+		if (typeof opacity !== "number" || !Number.isFinite(opacity)) return;
+		const clamped = Math.max(0.3, Math.min(1.0, opacity));
+		saveOpacity(clamped);
+		win.setOpacity(clamped);
+		win.webContents.send(IPC.OPACITY_CHANGED, clamped);
+	});
+
+	// Helper functions for context menu actions
+	function setZoom(zoom: number): void {
+		win.webContents.send(IPC.SET_CAMERA_ZOOM, zoom);
+	}
+
+	function setOpacity(opacity: number): void {
+		saveOpacity(opacity);
+		win.setOpacity(opacity);
+		win.webContents.send(IPC.OPACITY_CHANGED, opacity);
+	}
+
+	function snapTo(corner: "bottomRight" | "bottomLeft" | "topRight" | "topLeft"): void {
+		const pos = getSnapPosition(corner);
+		win.setPosition(pos.x, pos.y);
+		savePosition(pos.x, pos.y);
+	}
+
+	function setIdleTimeoutMenu(ms: number): void {
+		saveIdleTimeout(ms);
+		win.webContents.send(IPC.IDLE_TIMEOUT_CHANGED, ms);
+	}
+
+	function clearChat(): void {
+		clearChatHistory();
+		win.webContents.send(IPC.CHAT_HISTORY_CLEARED);
+	}
+
 	// IPC: show context menu from renderer settings button
 	ipcMain.on(IPC.SHOW_CONTEXT_MENU, () => {
+		const currentOpacity = getOpacity();
+		const currentTimeout = getIdleTimeout();
+
 		const menu = Menu.buildFromTemplate([
-			{
-				label: "Change Avatar Model\u2026",
-				click() {
-					showVrmPicker(win);
-				},
-			},
 			{
 				label: "Framing",
 				submenu: [
 					{
 						label: "Head",
-						click() {
-							win.webContents.send(IPC.SET_CAMERA_ZOOM, CAMERA_PRESETS.head);
-						},
+						click: () => setZoom(CAMERA_PRESETS.head),
 					},
 					{
 						label: "Upper Body",
-						click() {
-							win.webContents.send(IPC.SET_CAMERA_ZOOM, CAMERA_PRESETS.upperBody);
-						},
+						click: () => setZoom(CAMERA_PRESETS.upperBody),
 					},
 					{
 						label: "Full Body",
-						click() {
-							win.webContents.send(IPC.SET_CAMERA_ZOOM, CAMERA_PRESETS.fullBody);
-						},
+						click: () => setZoom(CAMERA_PRESETS.fullBody),
+					},
+				],
+			},
+			{
+				label: "Opacity",
+				submenu: [
+					{
+						label: "100%",
+						type: "radio",
+						checked: currentOpacity === 1.0,
+						click: () => setOpacity(1.0),
+					},
+					{
+						label: "75%",
+						type: "radio",
+						checked: currentOpacity === 0.75,
+						click: () => setOpacity(0.75),
+					},
+					{
+						label: "50%",
+						type: "radio",
+						checked: currentOpacity === 0.5,
+						click: () => setOpacity(0.5),
+					},
+					{
+						label: "30%",
+						type: "radio",
+						checked: currentOpacity === 0.3,
+						click: () => setOpacity(0.3),
+					},
+				],
+			},
+			{
+				label: "Position",
+				submenu: [
+					{
+						label: "Bottom Right",
+						click: () => snapTo("bottomRight"),
+					},
+					{
+						label: "Bottom Left",
+						click: () => snapTo("bottomLeft"),
+					},
+					{
+						label: "Top Right",
+						click: () => snapTo("topRight"),
+					},
+					{
+						label: "Top Left",
+						click: () => snapTo("topLeft"),
+					},
+				],
+			},
+			{
+				label: "Chat",
+				submenu: [
+					{
+						label: "Clear History",
+						click: clearChat,
+					},
+					{ type: "separator" },
+					{
+						label: "Auto-hide: 5s",
+						type: "radio",
+						checked: currentTimeout === IDLE_TIMEOUT_OPTIONS[0],
+						click: () => setIdleTimeoutMenu(IDLE_TIMEOUT_OPTIONS[0]),
+					},
+					{
+						label: "Auto-hide: 10s",
+						type: "radio",
+						checked: currentTimeout === IDLE_TIMEOUT_OPTIONS[1],
+						click: () => setIdleTimeoutMenu(IDLE_TIMEOUT_OPTIONS[1]),
+					},
+					{
+						label: "Auto-hide: 30s",
+						type: "radio",
+						checked: currentTimeout === IDLE_TIMEOUT_OPTIONS[2],
+						click: () => setIdleTimeoutMenu(IDLE_TIMEOUT_OPTIONS[2]),
+					},
+					{
+						label: "Auto-hide: Never",
+						type: "radio",
+						checked: currentTimeout === IDLE_TIMEOUT_OPTIONS[3],
+						click: () => setIdleTimeoutMenu(IDLE_TIMEOUT_OPTIONS[3]),
 					},
 				],
 			},
 			{ type: "separator" },
 			{
+				label: "Change Avatar Model\u2026",
+				click: () => showVrmPicker(win),
+			},
+			{ type: "separator" },
+			{
 				label: "Quit",
-				click() {
-					app.quit();
-				},
+				click: () => app.quit(),
 			},
 		]);
 		menu.popup({ window: win });

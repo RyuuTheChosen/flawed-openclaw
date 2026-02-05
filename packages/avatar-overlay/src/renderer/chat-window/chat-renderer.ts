@@ -14,6 +14,9 @@ const chatBubble = createChatBubble(chatBody, bridge, {
 	},
 });
 
+// Load chat history on init
+void chatBubble.loadHistory();
+
 // Receive agent state from main process
 bridge.onAgentState((state) => {
 	chatBubble.handleAgentState(state);

@@ -1,3 +1,24 @@
+interface ChatMessage {
+	id: string;
+	timestamp: number;
+	role: "user" | "assistant";
+	text: string;
+	agentId?: string;
+}
+
+interface ChatHistory {
+	schemaVersion: number;
+	messages: ChatMessage[];
+	lastUpdated: number;
+}
+
+interface AvatarSettings {
+	opacity: number;
+	idleTimeoutMs: number;
+	zoom: number;
+	position: { x: number; y: number } | null;
+}
+
 interface AvatarBridge {
 	setIgnoreMouseEvents(ignore: boolean): void;
 	dragMove(deltaX: number, deltaY: number): void;
@@ -14,6 +35,22 @@ interface AvatarBridge {
 	getAnimationsConfig(): Promise<{
 		clips: Record<import("../../shared/types.js").AgentPhase, string[]>;
 	} | null>;
+
+	// Settings
+	getSettings(): Promise<AvatarSettings>;
+	setOpacity(opacity: number): void;
+	onOpacityChanged(callback: (opacity: number) => void): void;
+
+	// Chat history
+	getChatHistory(): Promise<ChatHistory>;
+	appendChatMessage(role: "user" | "assistant", text: string, agentId?: string): void;
+	clearChatHistory(): void;
+	onChatHistoryCleared(callback: () => void): void;
+
+	// Idle timeout
+	getIdleTimeout(): Promise<number>;
+	setIdleTimeout(ms: number): void;
+	onIdleTimeoutChanged(callback: (ms: number) => void): void;
 }
 
 interface Window {
