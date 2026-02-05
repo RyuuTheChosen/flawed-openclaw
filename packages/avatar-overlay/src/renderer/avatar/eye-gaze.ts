@@ -1,4 +1,5 @@
 import type { VRM } from "@pixiv/three-vrm";
+import type * as THREE from "three";
 
 export interface EyeGazeConfig {
 	// Eye limits
@@ -42,6 +43,25 @@ const DEFAULT_IDLE_TIMEOUT = 3.0;
 
 // Convert degrees to radians
 const DEG_TO_RAD = Math.PI / 180;
+
+/**
+ * Get the head bone from VRM, with fallback for different VRM versions.
+ * Works with both VRM 0.x and VRM 1.0 models.
+ */
+function getHeadBone(vrm: VRM): THREE.Object3D | null {
+	const humanoid = vrm.humanoid;
+	if (!humanoid) return null;
+
+	// Try normalized bone first (preferred, consistent across models)
+	const normalizedHead = humanoid.getNormalizedBoneNode("head");
+	if (normalizedHead) return normalizedHead;
+
+	// Fallback to raw bone for older/non-standard VRM models
+	const rawHead = humanoid.getRawBoneNode("head");
+	if (rawHead) return rawHead;
+
+	return null;
+}
 
 export function createEyeGazeController(
 	vrm: VRM,
@@ -97,7 +117,8 @@ export function createEyeGazeController(
 			currentHeadPitch += (targetHeadPitch - currentHeadPitch) * headStep;
 
 			// Apply head rotation to bone (add to existing procedural sway)
-			const head = currentVrm.humanoid?.getNormalizedBoneNode("head");
+			// Uses fallback chain for VRM 0.x/1.0 compatibility
+			const head = getHeadBone(currentVrm);
 			if (head) {
 				head.rotation.y += currentHeadYaw;
 				head.rotation.x += currentHeadPitch;

@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import type { VRM } from "@pixiv/three-vrm";
+import type { VRM, VRMHumanBoneName } from "@pixiv/three-vrm";
 import { createExpressionController, type Expression } from "./expressions.js";
 import { createLipSync, type LipSync } from "./lip-sync.js";
 import { loadAnimationLibrary, type AnimationLibrary } from "./animation-loader.js";
@@ -11,6 +11,22 @@ import {
 } from "./hover-awareness.js";
 
 import type { AgentPhase } from "../../shared/types.js";
+
+/**
+ * Get a bone from VRM with fallback for VRM 0.x/1.0 compatibility.
+ * Tries normalized bone first, then falls back to raw bone.
+ */
+function getBone(vrm: VRM, boneName: VRMHumanBoneName): THREE.Object3D | null {
+	const humanoid = vrm.humanoid;
+	if (!humanoid) return null;
+
+	// Try normalized bone first (preferred)
+	const normalized = humanoid.getNormalizedBoneNode(boneName);
+	if (normalized) return normalized;
+
+	// Fallback to raw bone for older/non-standard VRM models
+	return humanoid.getRawBoneNode(boneName);
+}
 
 export type { Expression };
 
@@ -64,7 +80,7 @@ export function createAnimator(vrm: VRM): Animator {
 	}
 
 	function updateBreathing(elapsed: number): void {
-		const chest = currentVrm.humanoid?.getNormalizedBoneNode("chest");
+		const chest = getBone(currentVrm, "chest");
 		if (chest) {
 			chest.rotation.x = Math.sin(elapsed * 1.8 * Math.PI * 2) * 0.005;
 		}
@@ -102,7 +118,7 @@ export function createAnimator(vrm: VRM): Animator {
 	}
 
 	function updateHeadSway(elapsed: number): void {
-		const head = currentVrm.humanoid?.getNormalizedBoneNode("head");
+		const head = getBone(currentVrm, "head");
 		if (!head) return;
 
 		const swayMultiplier = currentPhase === "thinking" ? 2.5 : currentPhase === "speaking" ? 1.5 : 1.0;
