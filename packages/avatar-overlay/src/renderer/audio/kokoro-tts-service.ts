@@ -20,8 +20,9 @@ interface GeneratedAudio {
 }
 
 const MAX_PENDING_SEGMENTS = 50;
-const MAX_SEGMENT_CHARS = 500;
-const PREFETCH_COUNT = 2; // Pre-generate this many segments ahead
+const MAX_SEGMENT_CHARS = 1000; // Larger chunks = fewer generation calls
+const PREFETCH_COUNT = 3; // Pre-generate this many segments ahead
+const MIN_BUFFER_BEFORE_PLAY = 2; // Wait for this many segments before starting playback
 
 export function createKokoroTTSService(events: TTSEvents): TTSService {
 	let currentVoice = KOKORO_DEFAULT_VOICE;
@@ -92,25 +93,42 @@ export function createKokoroTTSService(events: TTSEvents): TTSService {
 	}
 
 	/**
-	 * Split text into sentence-level segments for memory efficiency.
+	 * Split text into larger segments for fewer generation calls.
+	 * Tries to split at paragraph/sentence boundaries when possible.
 	 */
 	function splitIntoSegments(text: string): string[] {
-		// Split by sentence boundaries
-		const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [text];
+		const trimmed = text.trim();
+		if (!trimmed) return [];
+
+		// If text is short enough, return as single segment
+		if (trimmed.length <= MAX_SEGMENT_CHARS) {
+			return [trimmed];
+		}
+
+		// Split into paragraphs first, then sentences if needed
 		const segments: string[] = [];
+		const paragraphs = trimmed.split(/\n\n+/);
 
-		for (const sentence of sentences) {
-			const trimmed = sentence.trim();
-			if (!trimmed) continue;
+		let currentChunk = "";
 
-			// Further split if sentence is too long
-			if (trimmed.length > MAX_SEGMENT_CHARS) {
-				// Split by commas or at word boundaries
-				const parts = trimmed.match(/.{1,500}(?:\s|$)/g) || [trimmed];
-				segments.push(...parts.map((p) => p.trim()).filter(Boolean));
+		for (const para of paragraphs) {
+			const paraText = para.trim();
+			if (!paraText) continue;
+
+			// If adding this paragraph would exceed limit, save current and start new
+			if (currentChunk && (currentChunk.length + paraText.length + 2) > MAX_SEGMENT_CHARS) {
+				if (currentChunk.trim()) {
+					segments.push(currentChunk.trim());
+				}
+				currentChunk = paraText;
 			} else {
-				segments.push(trimmed);
+				currentChunk = currentChunk ? currentChunk + "\n\n" + paraText : paraText;
 			}
+		}
+
+		// Add remaining chunk
+		if (currentChunk.trim()) {
+			segments.push(currentChunk.trim());
 		}
 
 		return segments;
@@ -189,11 +207,19 @@ export function createKokoroTTSService(events: TTSEvents): TTSService {
 	function playNext(): void {
 		if (disposed || isPlaying) return;
 
+		// If we haven't started playing yet, wait for minimum buffer
+		// (unless there's nothing more to generate)
+		const moreToGenerate = isGenerating || pendingSegments.length > 0;
+		if (!speaking && moreToGenerate && readyAudio.length < MIN_BUFFER_BEFORE_PLAY) {
+			// Wait for more buffer before starting
+			return;
+		}
+
 		const audio = readyAudio.shift();
 
 		if (!audio) {
 			// No ready audio - check if we're still generating
-			if (isGenerating || pendingSegments.length > 0) {
+			if (moreToGenerate) {
 				// Still generating, will be called again when audio is ready
 				return;
 			}
