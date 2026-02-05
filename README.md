@@ -43,6 +43,18 @@ A transparent Electron window that renders a VRM avatar using Three.js. The avat
 </p>
 -->
 
+### Quick Install (Plugin)
+
+Add the avatar to any existing OpenClaw installation:
+
+```bash
+openclaw plugins install https://github.com/RyuuTheChosen/flawed-openclaw/releases/download/avatar-overlay-v0.1.0/openclaw-avatar-overlay-0.1.0.tgz
+openclaw restart
+# → avatar window appears automatically
+```
+
+The avatar spawns when the gateway starts — no extra commands needed.
+
 ### Features
 
 | Feature | Description |
@@ -69,21 +81,31 @@ lifecycle.end    →  idle      →  neutral expression, idle animation
 
 ### Usage
 
+**Option 1: Plugin install (recommended for existing OpenClaw users)**
 ```bash
-cd packages/avatar-overlay
-
-# Development (build + launch)
-pnpm dev
-
-# Production
-pnpm build && pnpm start
+openclaw plugins install npm:@openclaw/avatar-overlay
+openclaw restart
 ```
 
-**Plugin commands:**
-- `/avatar-show` — Show overlay
-- `/avatar-hide` — Hide overlay
+**Option 2: Development (this fork)**
+```bash
+cd packages/avatar-overlay
+pnpm dev    # Build + launch standalone
+```
 
-**Custom avatars:** Place any `.vrm` file in `packages/avatar-overlay/assets/` and configure the path.
+**Commands:**
+- `/avatar_show` — Show overlay
+- `/avatar_hide` — Hide overlay
+
+**Custom avatars:** Configure a custom VRM model path in your OpenClaw config:
+```yaml
+# ~/.openclaw/config or openclaw.json
+plugins:
+  entries:
+    avatar-overlay:
+      config:
+        vrmPath: "/path/to/your/model.vrm"
+```
 
 ---
 

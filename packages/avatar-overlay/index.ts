@@ -10,7 +10,7 @@ const plugin = {
 		api.registerService(service);
 
 		api.registerCommand({
-			name: "avatar-show",
+			name: "avatar_show",
 			description: "Show the avatar overlay window",
 			handler: () => {
 				service.send({ type: "show" });
@@ -19,7 +19,7 @@ const plugin = {
 		});
 
 		api.registerCommand({
-			name: "avatar-hide",
+			name: "avatar_hide",
 			description: "Hide the avatar overlay window",
 			handler: () => {
 				service.send({ type: "hide" });
