@@ -58,7 +58,11 @@ async function boot(): Promise<void> {
 			case "idle":
 				animator.setExpression("neutral");
 				animator.setPhase("idle");
-				animator.stopLipSync();
+				// Don't stop lip sync if TTS is enabled - let it finish naturally with the audio
+				// Only stop if TTS is disabled (using text-based lip sync)
+				if (!ttsController?.isEnabled()) {
+					animator.stopLipSync();
+				}
 				// Don't cancel TTS on idle - let queued speech finish naturally
 				// TTS will be cancelled when a new interaction starts (thinking/working)
 				break;

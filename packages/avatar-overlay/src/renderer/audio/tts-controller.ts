@@ -58,6 +58,7 @@ export function createTTSController(
 	let speakingCallbacks: Array<(speaking: boolean) => void> = [];
 	let disposed = false;
 	let wasSpeaking = false;
+	let lastFedTextLength = 0; // Track how much text we've fed to lip sync
 
 	function notifySpeakingChange(speaking: boolean): void {
 		if (speaking !== wasSpeaking) {
@@ -74,11 +75,13 @@ export function createTTSController(
 		ttsService = createTTSService({
 			onStart: () => {
 				if (disposed) return;
-				lipSync.setMode("audio");
+				console.log("[TTS] onStart - TTS playback started");
+				// Keep text mode for lip sync (more reliable than boundary events)
 				notifySpeakingChange(true);
 			},
 			onEnd: () => {
 				if (disposed) return;
+				console.log("[TTS] onEnd - speech finished");
 				// Switch back to text mode when TTS finishes
 				// (allows fallback if TTS is disabled mid-speech)
 				notifySpeakingChange(false);
@@ -89,11 +92,15 @@ export function createTTSController(
 				// Convert word to viseme frames and feed to lip sync
 				const duration = estimateWordDuration(word);
 				const frames = wordToVisemes(word, duration);
-				lipSync.feedVisemeFrames(frames);
+				console.log(`[TTS] onBoundary: "${word}" -> ${frames.length} visemes, duration=${duration}ms, mode=${lipSync.getMode()}`, frames);
+
+				if (frames.length > 0) {
+					lipSync.feedVisemeFrames(frames);
+				}
 			},
 			onError: (error) => {
 				if (disposed) return;
-				console.warn("TTS error:", error);
+				console.warn("[TTS] error:", error);
 				// Fall back to text mode on error
 				lipSync.setMode("text");
 				notifySpeakingChange(false);
@@ -116,13 +123,12 @@ export function createTTSController(
 					ttsService.cancel();
 					ttsService.resetSpokenIndex();
 				}
-				lipSync.setMode("text");
 				lipSync.clearQueue();
 				notifySpeakingChange(false);
 			} else if (enabled && !wasEnabled) {
 				// TTS was just enabled - initialize service
 				initService();
-				lipSync.setMode("audio");
+				// Keep text mode for lip sync - more reliable than audio boundary events
 			}
 		},
 
@@ -134,6 +140,19 @@ export function createTTSController(
 			if (disposed || !ttsEnabled) return;
 
 			const service = initService();
+
+			// Use text-based lip sync (more reliable than boundary events)
+			// Only feed the new portion (delta) to avoid duplicates
+			if (fullText.length > lastFedTextLength) {
+				const deltaText = fullText.slice(lastFedTextLength);
+				lastFedTextLength = fullText.length;
+
+				console.log(`[TTS] queueText: feeding delta "${deltaText.slice(0, 50)}..." to lip sync`);
+				lipSync.setMode("text");
+				lipSync.feedText(deltaText);
+			}
+
+			// Also play TTS audio
 			service.speakDelta(fullText);
 		},
 
@@ -143,6 +162,7 @@ export function createTTSController(
 				ttsService.resetSpokenIndex();
 			}
 			lipSync.clearQueue();
+			lastFedTextLength = 0;
 			notifySpeakingChange(false);
 		},
 
@@ -151,6 +171,7 @@ export function createTTSController(
 			if (ttsService) {
 				ttsService.resetSpokenIndex();
 			}
+			lastFedTextLength = 0;
 		},
 
 		isSpeaking(): boolean {

@@ -92,6 +92,9 @@ export function createLipSync(vrm: VRM): LipSync {
 		}
 	}
 
+	// Debug: track last log time to avoid spam
+	let lastAudioModeLog = 0;
+
 	function updateAudioMode(delta: number): void {
 		if (visemeQueue.length === 0 || currentVisemeIndex >= visemeQueue.length) {
 			activeViseme = null;
@@ -111,6 +114,13 @@ export function createLipSync(vrm: VRM): LipSync {
 			// Move to next frame
 			visemeTimer -= frame.duration;
 			currentVisemeIndex++;
+		}
+
+		// Debug log occasionally
+		const now = Date.now();
+		if (now - lastAudioModeLog > 500) {
+			console.log(`[LipSync] updateAudioMode: activeViseme=${activeViseme}, queueLen=${visemeQueue.length}, index=${currentVisemeIndex}`);
+			lastAudioModeLog = now;
 		}
 
 		// Queue exhausted
@@ -144,7 +154,10 @@ export function createLipSync(vrm: VRM): LipSync {
 
 		update(delta: number): void {
 			const expr = currentVrm.expressionManager;
-			if (!expr) return;
+			if (!expr) {
+				console.warn("[LipSync] No expressionManager!");
+				return;
+			}
 
 			// Update based on current mode
 			if (mode === "text") {
@@ -178,6 +191,7 @@ export function createLipSync(vrm: VRM): LipSync {
 		// Audio mode API
 		setMode(newMode: LipSyncMode): void {
 			if (mode === newMode) return;
+			console.log(`[LipSync] setMode: ${mode} -> ${newMode}`);
 			mode = newMode;
 			// Clear the other mode's queue when switching
 			if (newMode === "text") {
@@ -200,6 +214,7 @@ export function createLipSync(vrm: VRM): LipSync {
 				visemeQueue = visemeQueue.slice(toRemove);
 			}
 			visemeQueue.push(...frames);
+			console.log(`[LipSync] feedVisemeFrames: added ${frames.length}, queue size=${visemeQueue.length}, mode=${mode}`);
 		},
 
 		clearQueue(): void {
