@@ -9,6 +9,8 @@ import {
 	IDLE_TIMEOUT_DEFAULT,
 	CHAT_MAX_HISTORY,
 	TTS_ENABLED_DEFAULT,
+	TTS_ENGINE_DEFAULT,
+	TTS_VOICE_DEFAULT,
 } from "../../shared/config.js";
 
 export const SETTINGS_SCHEMA_VERSION = 1;
@@ -31,6 +33,8 @@ export const SettingsSchema = z.object({
 	opacity: z.number().min(OPACITY_MIN).max(OPACITY_MAX).default(OPACITY_DEFAULT),
 	idleTimeoutMs: z.number().int().min(0).default(IDLE_TIMEOUT_DEFAULT),
 	ttsEnabled: z.boolean().default(TTS_ENABLED_DEFAULT),
+	ttsEngine: z.enum(["web-speech", "kokoro"]).default(TTS_ENGINE_DEFAULT),
+	ttsVoice: z.string().default(TTS_VOICE_DEFAULT),
 });
 
 export type Settings = z.infer<typeof SettingsSchema>;
@@ -67,6 +71,8 @@ export function createDefaultSettings(): Settings {
 		opacity: OPACITY_DEFAULT,
 		idleTimeoutMs: IDLE_TIMEOUT_DEFAULT,
 		ttsEnabled: TTS_ENABLED_DEFAULT,
+		ttsEngine: TTS_ENGINE_DEFAULT,
+		ttsVoice: TTS_VOICE_DEFAULT,
 	};
 }
 

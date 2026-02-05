@@ -40,4 +40,17 @@ export const IPC = {
 	GET_TTS_ENABLED: "avatar:tts-get-enabled",
 	SET_TTS_ENABLED: "avatar:tts-set-enabled",
 	TTS_ENABLED_CHANGED: "avatar:tts-enabled-changed",
+
+	// TTS engine settings
+	GET_TTS_ENGINE: "avatar:tts-get-engine",
+	SET_TTS_ENGINE: "avatar:tts-set-engine",
+	TTS_ENGINE_CHANGED: "avatar:tts-engine-changed",
+
+	// TTS voice settings
+	GET_TTS_VOICE: "avatar:tts-get-voice",
+	SET_TTS_VOICE: "avatar:tts-set-voice",
+	TTS_VOICE_CHANGED: "avatar:tts-voice-changed",
+
+	// Debug logging from renderer to main
+	DEBUG_LOG: "avatar:debug-log",
 } as const;

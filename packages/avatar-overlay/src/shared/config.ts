@@ -64,3 +64,5 @@ export const INPUT_MAX_DISPLAY_CHARS = 100; // Show counter after this
 // === TTS Settings ===
 export const TTS_ENABLED_DEFAULT = false;
 export const TTS_RATE_DEFAULT = 1.0;
+export const TTS_ENGINE_DEFAULT = "web-speech" as const;
+export const TTS_VOICE_DEFAULT = "";

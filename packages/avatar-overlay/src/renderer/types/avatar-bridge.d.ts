@@ -56,6 +56,16 @@ interface AvatarBridge {
 	getTtsEnabled(): Promise<boolean>;
 	setTtsEnabled(enabled: boolean): void;
 	onTtsEnabledChanged(callback: (enabled: boolean) => void): void;
+
+	// TTS engine
+	getTtsEngine(): Promise<"web-speech" | "kokoro">;
+	setTtsEngine(engine: "web-speech" | "kokoro"): void;
+	onTtsEngineChanged(callback: (engine: "web-speech" | "kokoro") => void): void;
+
+	// TTS voice
+	getTtsVoice(): Promise<string>;
+	setTtsVoice(voice: string): void;
+	onTtsVoiceChanged(callback: (voice: string) => void): void;
 }
 
 interface Window {

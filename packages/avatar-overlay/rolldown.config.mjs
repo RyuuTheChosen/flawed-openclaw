@@ -6,6 +6,7 @@ export default defineConfig([
 		output: {
 			file: "dist/renderer-bundle/renderer.js",
 			format: "esm",
+			inlineDynamicImports: true,
 		},
 		resolve: {
 			extensions: [".js", ".mjs"],

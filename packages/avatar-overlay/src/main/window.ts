@@ -17,11 +17,15 @@ import {
 	saveOpacity,
 	saveIdleTimeout,
 	saveTtsEnabled,
+	saveTtsEngine,
+	saveTtsVoice,
 	getPosition,
 	getZoom,
 	getOpacity,
 	getIdleTimeout,
 	getTtsEnabled,
+	getTtsEngine,
+	getTtsVoice,
 	cleanupSettings,
 	migrateLegacyFiles,
 	getChatHistory,
@@ -102,6 +106,13 @@ export function createOverlayWindow(): BrowserWindow {
 	// Apply persisted opacity
 	win.setOpacity(getOpacity());
 
+	// Open DevTools with F12 key (detached so it's interactive)
+	win.webContents.on("before-input-event", (_event, input) => {
+		if (input.key === "F12" && input.type === "keyDown") {
+			win.webContents.openDevTools({ mode: "detach" });
+		}
+	});
+
 	win.loadFile(path.join(__dirname, "..", "..", "renderer-bundle", "index.html"));
 
 	// Persist position on move
@@ -131,6 +142,10 @@ export function createOverlayWindow(): BrowserWindow {
 	ipcMain.removeAllListeners(IPC.SET_OPACITY);
 	ipcMain.removeHandler(IPC.GET_TTS_ENABLED);
 	ipcMain.removeAllListeners(IPC.SET_TTS_ENABLED);
+	ipcMain.removeHandler(IPC.GET_TTS_ENGINE);
+	ipcMain.removeAllListeners(IPC.SET_TTS_ENGINE);
+	ipcMain.removeHandler(IPC.GET_TTS_VOICE);
+	ipcMain.removeAllListeners(IPC.SET_TTS_VOICE);
 
 	// IPC: click-through toggle
 	ipcMain.on(IPC.SET_IGNORE_MOUSE, (_event, ignore: unknown) => {
@@ -207,13 +222,41 @@ export function createOverlayWindow(): BrowserWindow {
 
 	// IPC: TTS enabled
 	ipcMain.handle(IPC.GET_TTS_ENABLED, () => {
-		return getTtsEnabled();
+		const enabled = getTtsEnabled();
+		console.log("[TTS] getTtsEnabled:", enabled);
+		return enabled;
 	});
 
 	ipcMain.on(IPC.SET_TTS_ENABLED, (_event, enabled: unknown) => {
 		if (typeof enabled !== "boolean") return;
+		console.log("[TTS] setTtsEnabled:", enabled);
 		saveTtsEnabled(enabled);
 		win.webContents.send(IPC.TTS_ENABLED_CHANGED, enabled);
+	});
+
+	// IPC: TTS engine
+	ipcMain.handle(IPC.GET_TTS_ENGINE, () => {
+		const engine = getTtsEngine();
+		console.log("[TTS] getTtsEngine:", engine);
+		return engine;
+	});
+
+	ipcMain.on(IPC.SET_TTS_ENGINE, (_event, engine: unknown) => {
+		if (engine !== "web-speech" && engine !== "kokoro") return;
+		console.log("[TTS] setTtsEngine:", engine);
+		saveTtsEngine(engine);
+		win.webContents.send(IPC.TTS_ENGINE_CHANGED, engine);
+	});
+
+	// IPC: TTS voice
+	ipcMain.handle(IPC.GET_TTS_VOICE, () => {
+		return getTtsVoice();
+	});
+
+	ipcMain.on(IPC.SET_TTS_VOICE, (_event, voice: unknown) => {
+		if (typeof voice !== "string") return;
+		saveTtsVoice(voice);
+		win.webContents.send(IPC.TTS_VOICE_CHANGED, voice);
 	});
 
 	// Helper functions for context menu actions
@@ -243,10 +286,17 @@ export function createOverlayWindow(): BrowserWindow {
 		win.webContents.send(IPC.CHAT_HISTORY_CLEARED);
 	}
 
+	// Helper functions for TTS settings
+	function setTtsEngine(engine: "web-speech" | "kokoro"): void {
+		saveTtsEngine(engine);
+		win.webContents.send(IPC.TTS_ENGINE_CHANGED, engine);
+	}
+
 	// IPC: show context menu from renderer settings button
 	ipcMain.on(IPC.SHOW_CONTEXT_MENU, () => {
 		const currentOpacity = getOpacity();
 		const currentTimeout = getIdleTimeout();
+		const currentEngine = getTtsEngine();
 
 		const menu = Menu.buildFromTemplate([
 			{
@@ -347,6 +397,28 @@ export function createOverlayWindow(): BrowserWindow {
 						type: "radio",
 						checked: currentTimeout === IDLE_TIMEOUT_OPTIONS[3],
 						click: () => setIdleTimeoutMenu(IDLE_TIMEOUT_OPTIONS[3]),
+					},
+				],
+			},
+			{
+				label: "Voice",
+				submenu: [
+					{
+						label: "Engine",
+						submenu: [
+							{
+								label: "Web Speech (System)",
+								type: "radio",
+								checked: currentEngine === "web-speech",
+								click: () => setTtsEngine("web-speech"),
+							},
+							{
+								label: "Kokoro (Local AI)",
+								type: "radio",
+								checked: currentEngine === "kokoro",
+								click: () => setTtsEngine("kokoro"),
+							},
+						],
 					},
 				],
 			},

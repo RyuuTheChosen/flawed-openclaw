@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data: blob:; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' file: data: blob:; connect-src 'self' file: data: blob:" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data: blob:; script-src 'self' 'wasm-unsafe-eval' https://cdn.jsdelivr.net https://*.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' file: data: blob:; connect-src 'self' file: data: blob: https://huggingface.co https://*.huggingface.co https://*.hf.co https://*.amazonaws.com https://cdn.jsdelivr.net https://*.jsdelivr.net; worker-src 'self' blob: https://cdn.jsdelivr.net https://*.jsdelivr.net" />
   <title>OpenClaw Avatar</title>
   <link rel="stylesheet" href="./styles/controls.css" />
   <style>

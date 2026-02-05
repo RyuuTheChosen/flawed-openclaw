@@ -91,7 +91,14 @@ async function boot(): Promise<void> {
 
 	// Initialize TTS controller with persisted state
 	const ttsEnabled = await bridge.getTtsEnabled();
-	ttsController = createTTSController(animator.getLipSync(), ttsEnabled);
+	const ttsEngine = await bridge.getTtsEngine();
+	const ttsVoice = await bridge.getTtsVoice();
+	console.log("[TTS] Initializing with:", { ttsEnabled, ttsEngine, ttsVoice });
+	ttsController = createTTSController(animator.getLipSync(), {
+		enabled: ttsEnabled,
+		engine: ttsEngine || "web-speech",
+		voice: ttsVoice || "",
+	});
 
 	// Load animation clips (non-blocking, avatar shows procedural fallback while loading)
 	const animConfig = await bridge.getAnimationsConfig();
@@ -191,6 +198,20 @@ async function boot(): Promise<void> {
 			ttsController.setEnabled(enabled);
 		}
 		ttsToggleBtn.classList.toggle("active", enabled);
+	});
+
+	// Update TTS engine when changed from context menu
+	bridge.onTtsEngineChanged((engine: string) => {
+		if (ttsController && (engine === "web-speech" || engine === "kokoro")) {
+			ttsController.setEngine(engine);
+		}
+	});
+
+	// Update TTS voice when changed from context menu
+	bridge.onTtsVoiceChanged((voice: string) => {
+		if (ttsController) {
+			ttsController.setVoice(voice);
+		}
 	});
 
 	// Update speaking animation on TTS state change

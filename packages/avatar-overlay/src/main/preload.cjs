@@ -31,6 +31,16 @@ const IPC = {
 	GET_TTS_ENABLED: "avatar:tts-get-enabled",
 	SET_TTS_ENABLED: "avatar:tts-set-enabled",
 	TTS_ENABLED_CHANGED: "avatar:tts-enabled-changed",
+	// TTS engine
+	GET_TTS_ENGINE: "avatar:tts-get-engine",
+	SET_TTS_ENGINE: "avatar:tts-set-engine",
+	TTS_ENGINE_CHANGED: "avatar:tts-engine-changed",
+	// TTS voice
+	GET_TTS_VOICE: "avatar:tts-get-voice",
+	SET_TTS_VOICE: "avatar:tts-set-voice",
+	TTS_VOICE_CHANGED: "avatar:tts-voice-changed",
+	// Debug
+	DEBUG_LOG: "avatar:debug-log",
 };
 
 contextBridge.exposeInMainWorld("avatarBridge", {
@@ -163,6 +173,38 @@ contextBridge.exposeInMainWorld("avatarBridge", {
 		ipcRenderer.removeAllListeners(IPC.TTS_ENABLED_CHANGED);
 		ipcRenderer.on(IPC.TTS_ENABLED_CHANGED, (_event, enabled) => {
 			callback(enabled);
+		});
+	},
+
+	// TTS engine
+	getTtsEngine() {
+		return ipcRenderer.invoke(IPC.GET_TTS_ENGINE);
+	},
+
+	setTtsEngine(engine) {
+		ipcRenderer.send(IPC.SET_TTS_ENGINE, engine);
+	},
+
+	onTtsEngineChanged(callback) {
+		ipcRenderer.removeAllListeners(IPC.TTS_ENGINE_CHANGED);
+		ipcRenderer.on(IPC.TTS_ENGINE_CHANGED, (_event, engine) => {
+			callback(engine);
+		});
+	},
+
+	// TTS voice
+	getTtsVoice() {
+		return ipcRenderer.invoke(IPC.GET_TTS_VOICE);
+	},
+
+	setTtsVoice(voice) {
+		ipcRenderer.send(IPC.SET_TTS_VOICE, voice);
+	},
+
+	onTtsVoiceChanged(callback) {
+		ipcRenderer.removeAllListeners(IPC.TTS_VOICE_CHANGED);
+		ipcRenderer.on(IPC.TTS_VOICE_CHANGED, (_event, voice) => {
+			callback(voice);
 		});
 	},
 });

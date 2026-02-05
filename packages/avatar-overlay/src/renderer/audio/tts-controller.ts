@@ -1,9 +1,11 @@
 /**
  * TTS Controller - Orchestrates TTS service, phoneme mapper, and lip sync.
  * Handles cumulative text from gateway and coordinates audio-driven lip sync.
+ * Supports multiple TTS engines with voice selection.
  */
 
-import { createTTSService, type TTSService } from "./tts-service.js";
+import type { TTSService, TTSEvents, TTSEngineType, TTSVoice, TTSControllerConfig } from "./types.js";
+import { createTTSServiceFactory, type TTSServiceFactory } from "./tts-service-factory.js";
 import { wordToVisemes, estimateWordDuration } from "./phoneme-mapper.js";
 import type { LipSync } from "../avatar/lip-sync.js";
 
@@ -44,6 +46,31 @@ export interface TTSController {
 	onSpeakingChange(cb: (speaking: boolean) => void): void;
 
 	/**
+	 * Get the current TTS engine type.
+	 */
+	getEngine(): TTSEngineType;
+
+	/**
+	 * Set the TTS engine type.
+	 */
+	setEngine(engine: TTSEngineType): void;
+
+	/**
+	 * Get available voices for the current engine.
+	 */
+	getAvailableVoices(): TTSVoice[];
+
+	/**
+	 * Get the current voice ID.
+	 */
+	getVoice(): string | null;
+
+	/**
+	 * Set the current voice by ID.
+	 */
+	setVoice(voiceId: string): void;
+
+	/**
 	 * Cleanup resources.
 	 */
 	dispose(): void;
@@ -51,14 +78,19 @@ export interface TTSController {
 
 export function createTTSController(
 	lipSync: LipSync,
-	enabled: boolean
+	config: TTSControllerConfig,
+	factory?: TTSServiceFactory
 ): TTSController {
-	let ttsEnabled = enabled;
+	const serviceFactory = factory ?? createTTSServiceFactory();
+
+	let ttsEnabled = config.enabled;
+	let currentEngine: TTSEngineType = config.engine;
+	let currentVoiceId: string = config.voice;
 	let ttsService: TTSService | null = null;
 	let speakingCallbacks: Array<(speaking: boolean) => void> = [];
 	let disposed = false;
 	let wasSpeaking = false;
-	let lastFedTextLength = 0; // Track how much text we've fed to lip sync
+	let lastFedTextLength = 0;
 
 	function notifySpeakingChange(speaking: boolean): void {
 		if (speaking !== wasSpeaking) {
@@ -69,21 +101,16 @@ export function createTTSController(
 		}
 	}
 
-	function initService(): TTSService {
-		if (ttsService) return ttsService;
-
-		ttsService = createTTSService({
+	function createEvents(): TTSEvents {
+		return {
 			onStart: () => {
 				if (disposed) return;
-				console.log("[TTS] onStart - TTS playback started");
-				// Keep text mode for lip sync (more reliable than boundary events)
 				notifySpeakingChange(true);
 			},
 			onEnd: () => {
 				if (disposed) return;
-				console.log("[TTS] onEnd - speech finished");
-				// Switch back to text mode when TTS finishes
-				// (allows fallback if TTS is disabled mid-speech)
+				// Clear lip sync queue when speech ends
+				lipSync.clearQueue();
 				notifySpeakingChange(false);
 			},
 			onBoundary: (word, _charIndex, _charLength) => {
@@ -92,22 +119,41 @@ export function createTTSController(
 				// Convert word to viseme frames and feed to lip sync
 				const duration = estimateWordDuration(word);
 				const frames = wordToVisemes(word, duration);
-				console.log(`[TTS] onBoundary: "${word}" -> ${frames.length} visemes, duration=${duration}ms, mode=${lipSync.getMode()}`, frames);
 
 				if (frames.length > 0) {
+					// Use audio mode for audio-driven lip sync
+					lipSync.setMode("audio");
 					lipSync.feedVisemeFrames(frames);
 				}
 			},
 			onError: (error) => {
 				if (disposed) return;
-				console.warn("[TTS] error:", error);
+				console.warn(`[TTS] ${currentEngine} error:`, error);
 				// Fall back to text mode on error
 				lipSync.setMode("text");
 				notifySpeakingChange(false);
 			},
-		});
+		};
+	}
+
+	function initService(): TTSService {
+		if (ttsService) return ttsService;
+
+		ttsService = serviceFactory.createService(currentEngine, createEvents());
+
+		// Apply saved voice if available
+		if (currentVoiceId) {
+			ttsService.setVoice(currentVoiceId);
+		}
 
 		return ttsService;
+	}
+
+	function disposeService(): void {
+		if (ttsService) {
+			ttsService.dispose();
+			ttsService = null;
+		}
 	}
 
 	return {
@@ -128,7 +174,6 @@ export function createTTSController(
 			} else if (enabled && !wasEnabled) {
 				// TTS was just enabled - initialize service
 				initService();
-				// Keep text mode for lip sync - more reliable than audio boundary events
 			}
 		},
 
@@ -141,18 +186,15 @@ export function createTTSController(
 
 			const service = initService();
 
-			// Use text-based lip sync (more reliable than boundary events)
-			// Only feed the new portion (delta) to avoid duplicates
+			// Track text length for delta calculation
 			if (fullText.length > lastFedTextLength) {
-				const deltaText = fullText.slice(lastFedTextLength);
 				lastFedTextLength = fullText.length;
-
-				console.log(`[TTS] queueText: feeding delta "${deltaText.slice(0, 50)}..." to lip sync`);
-				lipSync.setMode("text");
-				lipSync.feedText(deltaText);
 			}
 
-			// Also play TTS audio
+			// Don't feed text to lip sync here - let audio boundary events drive it
+			// This ensures lip sync follows actual audio playback, not text arrival
+
+			// Play TTS audio (boundary events will drive lip sync)
 			service.speakDelta(fullText);
 		},
 
@@ -171,6 +213,7 @@ export function createTTSController(
 			if (ttsService) {
 				ttsService.resetSpokenIndex();
 			}
+			lipSync.clearQueue();
 			lastFedTextLength = 0;
 		},
 
@@ -182,12 +225,55 @@ export function createTTSController(
 			speakingCallbacks.push(cb);
 		},
 
+		getEngine(): TTSEngineType {
+			return currentEngine;
+		},
+
+		setEngine(engine: TTSEngineType): void {
+			if (disposed || engine === currentEngine) return;
+
+			console.log(`[TTS] Switching engine from ${currentEngine} to ${engine}`);
+
+			// Cancel and dispose current service
+			if (ttsService) {
+				ttsService.cancel();
+				disposeService();
+			}
+
+			currentEngine = engine;
+
+			// Reset voice when switching engines (voices are engine-specific)
+			currentVoiceId = "";
+
+			// If TTS is enabled, initialize new service
+			if (ttsEnabled) {
+				initService();
+			}
+
+			notifySpeakingChange(false);
+		},
+
+		getAvailableVoices(): TTSVoice[] {
+			const service = ttsService ?? initService();
+			return service.getVoices();
+		},
+
+		getVoice(): string | null {
+			return currentVoiceId || ttsService?.getCurrentVoice() || null;
+		},
+
+		setVoice(voiceId: string): void {
+			if (disposed) return;
+
+			currentVoiceId = voiceId;
+			if (ttsService) {
+				ttsService.setVoice(voiceId);
+			}
+		},
+
 		dispose(): void {
 			disposed = true;
-			if (ttsService) {
-				ttsService.dispose();
-				ttsService = null;
-			}
+			disposeService();
 			speakingCallbacks = [];
 			wasSpeaking = false;
 		},

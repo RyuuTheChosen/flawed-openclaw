@@ -9,6 +9,8 @@ import {
 	IDLE_TIMEOUT_DEFAULT,
 	SETTINGS_DEBOUNCE_MS,
 	TTS_ENABLED_DEFAULT,
+	TTS_ENGINE_DEFAULT,
+	TTS_VOICE_DEFAULT,
 } from "../../shared/config.js";
 import { createFileStore, type FileStore } from "./file-store.js";
 import {
@@ -116,6 +118,34 @@ export function saveTtsEnabled(enabled: boolean): void {
 export function getTtsEnabled(): boolean {
 	const settings = getStore().getCache() ?? loadSettings();
 	return settings.ttsEnabled ?? TTS_ENABLED_DEFAULT;
+}
+
+export function saveTtsEngine(engine: "web-speech" | "kokoro"): void {
+	const current = getStore().getCache() ?? loadSettings();
+	const updated: Settings = {
+		...current,
+		ttsEngine: engine,
+	};
+	getStore().save(updated);
+}
+
+export function getTtsEngine(): "web-speech" | "kokoro" {
+	const settings = getStore().getCache() ?? loadSettings();
+	return settings.ttsEngine ?? TTS_ENGINE_DEFAULT;
+}
+
+export function saveTtsVoice(voice: string): void {
+	const current = getStore().getCache() ?? loadSettings();
+	const updated: Settings = {
+		...current,
+		ttsVoice: voice,
+	};
+	getStore().save(updated);
+}
+
+export function getTtsVoice(): string {
+	const settings = getStore().getCache() ?? loadSettings();
+	return settings.ttsVoice ?? TTS_VOICE_DEFAULT;
 }
 
 export async function flushSettings(): Promise<void> {
