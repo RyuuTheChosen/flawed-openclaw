@@ -41,6 +41,10 @@ const IPC = {
 	TTS_VOICE_CHANGED: "avatar:tts-voice-changed",
 	// Debug
 	DEBUG_LOG: "avatar:debug-log",
+	// Cursor tracking
+	CURSOR_POSITION: "avatar:cursor-position",
+	START_CURSOR_TRACKING: "avatar:start-cursor-tracking",
+	STOP_CURSOR_TRACKING: "avatar:stop-cursor-tracking",
 };
 
 contextBridge.exposeInMainWorld("avatarBridge", {
@@ -205,6 +209,22 @@ contextBridge.exposeInMainWorld("avatarBridge", {
 		ipcRenderer.removeAllListeners(IPC.TTS_VOICE_CHANGED);
 		ipcRenderer.on(IPC.TTS_VOICE_CHANGED, (_event, voice) => {
 			callback(voice);
+		});
+	},
+
+	// Cursor tracking
+	startCursorTracking() {
+		ipcRenderer.send(IPC.START_CURSOR_TRACKING);
+	},
+
+	stopCursorTracking() {
+		ipcRenderer.send(IPC.STOP_CURSOR_TRACKING);
+	},
+
+	onCursorPosition(callback) {
+		ipcRenderer.removeAllListeners(IPC.CURSOR_POSITION);
+		ipcRenderer.on(IPC.CURSOR_POSITION, (_event, x, y, screenWidth, screenHeight) => {
+			callback(x, y, screenWidth, screenHeight);
 		});
 	},
 });

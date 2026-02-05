@@ -11,6 +11,7 @@ export interface ExpressionController {
 	setExpression(expression: Expression): void;
 	update(delta: number): void;
 	setVrm(vrm: VRM): void;
+	applyOverlay(expression: Expression, weight: number): void;
 }
 
 export function createExpressionController(vrm: VRM): ExpressionController {
@@ -19,6 +20,7 @@ export function createExpressionController(vrm: VRM): ExpressionController {
 	const weights: Record<Expression, number> = {
 		happy: 0, sad: 0, angry: 0, surprised: 0, relaxed: 0, neutral: 0,
 	};
+	let pendingOverlay: { expression: Expression; weight: number } | null = null;
 
 	return {
 		setExpression(expression: Expression): void {
@@ -28,17 +30,34 @@ export function createExpressionController(vrm: VRM): ExpressionController {
 		update(delta: number): void {
 			const expr = currentVrm.expressionManager;
 			if (!expr) return;
+
+			// Apply base expressions
 			const step = Math.min(delta * TRANSITION_SPEED, 1);
 			for (const name of ALL_EXPRESSIONS) {
 				const goal = target === name ? 1 : 0;
 				weights[name] += (goal - weights[name]) * step;
 				expr.setValue(name, weights[name]);
 			}
+
+			// Apply overlay additively
+			if (pendingOverlay) {
+				const current = expr.getValue(pendingOverlay.expression) ?? 0;
+				expr.setValue(
+					pendingOverlay.expression,
+					Math.min(1, current + pendingOverlay.weight),
+				);
+				pendingOverlay = null; // Reset for next frame
+			}
 		},
 
 		setVrm(vrm: VRM): void {
 			currentVrm = vrm;
 			for (const e of ALL_EXPRESSIONS) weights[e] = 0;
+			pendingOverlay = null;
+		},
+
+		applyOverlay(expression: Expression, weight: number): void {
+			pendingOverlay = { expression, weight };
 		},
 	};
 }

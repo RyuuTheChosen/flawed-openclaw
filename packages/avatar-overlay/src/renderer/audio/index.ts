@@ -14,6 +14,14 @@ export { wordToVisemes, estimateWordDuration, type Viseme, type VisemeFrame } fr
 // Audio player
 export { createAudioPlayer, type AudioPlayer, type AudioPlayerEvents } from "./audio-player.js";
 
+// Frequency analyzer
+export {
+	createFrequencyAnalyzer,
+	type FrequencyAnalyzer,
+	type FrequencyBands,
+	type FrequencyAnalyzerConfig,
+} from "./frequency-analyzer.js";
+
 // TTS services
 export { createWebSpeechTTSService } from "./web-speech-tts.js";
 export { createKokoroTTSService, disposeKokoroLoader } from "./kokoro-tts-service.js";

@@ -53,4 +53,9 @@ export const IPC = {
 
 	// Debug logging from renderer to main
 	DEBUG_LOG: "avatar:debug-log",
+
+	// Global cursor tracking
+	CURSOR_POSITION: "avatar:cursor-position",
+	START_CURSOR_TRACKING: "avatar:start-cursor-tracking",
+	STOP_CURSOR_TRACKING: "avatar:stop-cursor-tracking",
 } as const;

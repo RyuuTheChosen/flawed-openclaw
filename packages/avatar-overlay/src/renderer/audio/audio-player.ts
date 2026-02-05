@@ -25,6 +25,16 @@ export interface AudioPlayer {
 	isPlaying(): boolean;
 
 	/**
+	 * Get the AudioContext for frequency analysis.
+	 */
+	getAudioContext(): AudioContext | null;
+
+	/**
+	 * Get the AnalyserNode for frequency analysis.
+	 */
+	getAnalyserNode(): AnalyserNode | null;
+
+	/**
 	 * Cleanup resources.
 	 */
 	dispose(): void;
@@ -33,12 +43,17 @@ export interface AudioPlayer {
 export function createAudioPlayer(events: AudioPlayerEvents = {}): AudioPlayer {
 	let audioContext: AudioContext | null = null;
 	let currentSource: AudioBufferSourceNode | null = null;
+	let analyser: AnalyserNode | null = null;
 	let playing = false;
 	let disposed = false;
 
 	function getContext(): AudioContext {
 		if (!audioContext) {
 			audioContext = new AudioContext();
+			// Create analyser for frequency analysis
+			analyser = audioContext.createAnalyser();
+			analyser.fftSize = 256;
+			analyser.smoothingTimeConstant = 0.8;
 		}
 		return audioContext;
 	}
@@ -73,10 +88,15 @@ export function createAudioPlayer(events: AudioPlayerEvents = {}): AudioPlayer {
 			const audioBuffer = ctx.createBuffer(1, audioData.length, sampleRate);
 			audioBuffer.getChannelData(0).set(audioData);
 
-			// Create and connect source
+			// Create and connect source through analyser
 			currentSource = ctx.createBufferSource();
 			currentSource.buffer = audioBuffer;
-			currentSource.connect(ctx.destination);
+			if (analyser) {
+				currentSource.connect(analyser);
+				analyser.connect(ctx.destination);
+			} else {
+				currentSource.connect(ctx.destination);
+			}
 
 			currentSource.onended = () => {
 				if (disposed) return;
@@ -99,9 +119,21 @@ export function createAudioPlayer(events: AudioPlayerEvents = {}): AudioPlayer {
 			return playing;
 		},
 
+		getAudioContext(): AudioContext | null {
+			return audioContext;
+		},
+
+		getAnalyserNode(): AnalyserNode | null {
+			return analyser;
+		},
+
 		dispose(): void {
 			disposed = true;
 			cleanupSource();
+			if (analyser) {
+				analyser.disconnect();
+				analyser = null;
+			}
 			if (audioContext) {
 				audioContext.close();
 				audioContext = null;

@@ -4,6 +4,10 @@ import { createScene } from "./avatar/scene.js";
 import { loadVrmModel, unloadVrmModel } from "./avatar/vrm-loader.js";
 import { createAnimator, type Animator } from "./avatar/animator.js";
 import { createTTSController, type TTSController } from "./audio/index.js";
+import {
+	createSpringBoneController,
+	type SpringBoneController,
+} from "./avatar/spring-bones.js";
 import { CAMERA_ZOOM_STEP } from "../shared/config.js";
 
 const bridge = window.avatarBridge;
@@ -11,6 +15,7 @@ const bridge = window.avatarBridge;
 let currentVrm: VRM | null = null;
 let animator: Animator | null = null;
 let ttsController: TTSController | null = null;
+let springBones: SpringBoneController | null = null;
 
 async function boot(): Promise<void> {
 	const canvas = document.getElementById("avatar-canvas") as HTMLCanvasElement;
@@ -71,22 +76,31 @@ async function boot(): Promise<void> {
 		previousPhase = state.phase;
 	});
 
+	// Initialize spring bone controller
+	springBones = createSpringBoneController();
+
 	// Model swap from tray or gateway agent switch
 	bridge.onVrmModelChanged(async (newPath: string) => {
 		if (currentVrm) unloadVrmModel(currentVrm, scene);
 		try {
-			currentVrm = await loadVrmModel(newPath, scene);
+			currentVrm = await loadVrmModel(newPath, scene, (gltf) => {
+				springBones?.setFromGltf(gltf);
+			});
 		} catch (err) {
 			console.error("Failed to load VRM model, reverting to default:", err);
 			const defaultPath = await bridge.getVrmPath();
-			currentVrm = await loadVrmModel(defaultPath, scene);
+			currentVrm = await loadVrmModel(defaultPath, scene, (gltf) => {
+				springBones?.setFromGltf(gltf);
+			});
 		}
 		if (animator) animator.setVrm(currentVrm);
 	});
 
 	// Load default VRM
 	const vrmPath = await bridge.getVrmPath();
-	currentVrm = await loadVrmModel(vrmPath, scene);
+	currentVrm = await loadVrmModel(vrmPath, scene, (gltf) => {
+		springBones?.setFromGltf(gltf);
+	});
 	animator = createAnimator(currentVrm);
 
 	// Initialize TTS controller with persisted state
@@ -117,10 +131,20 @@ async function boot(): Promise<void> {
 	// Click-through: ignore mouse on transparent areas
 	document.addEventListener("mouseenter", () => {
 		bridge.setIgnoreMouseEvents(false);
+		if (animator) animator.setHovering(true);
 	});
 	document.addEventListener("mouseleave", () => {
 		bridge.setIgnoreMouseEvents(true);
+		if (animator) animator.setHovering(false);
 	});
+
+	// Global cursor tracking for eye/head gaze (works outside window)
+	bridge.onCursorPosition((x, y, screenWidth, screenHeight) => {
+		if (animator) {
+			animator.setGazeScreenPosition(x, y, screenWidth, screenHeight);
+		}
+	});
+	bridge.startCursorTracking();
 
 	// Drag support via drag handle
 	const dragHandle = document.getElementById("drag-handle")!;
@@ -231,6 +255,7 @@ async function boot(): Promise<void> {
 
 		if (currentVrm && animator) {
 			animator.update(delta, elapsed);
+			springBones?.update(delta); // Update spring bones after animator
 			currentVrm.update(delta);
 		}
 

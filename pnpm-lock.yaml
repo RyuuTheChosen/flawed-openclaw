@@ -539,6 +539,9 @@ importers:
       '@pixiv/three-vrm':
         specifier: ~3.3.0
         version: 3.3.7(three@0.170.0)
+      '@pixiv/three-vrm-springbone':
+        specifier: ~3.3.0
+        version: 3.3.7(three@0.170.0)
       fflate:
         specifier: ^0.8.2
         version: 0.8.2

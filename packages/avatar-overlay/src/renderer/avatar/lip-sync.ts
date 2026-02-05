@@ -31,6 +31,9 @@ export interface LipSync {
 	getMode(): LipSyncMode;
 	feedVisemeFrames(frames: VisemeFrame[]): void;
 	clearQueue(): void;
+
+	// Audio-reactive intensity
+	setEnergyMultiplier(energy: number): void;
 }
 
 export function createLipSync(vrm: VRM): LipSync {
@@ -50,6 +53,7 @@ export function createLipSync(vrm: VRM): LipSync {
 	// Shared state
 	let activeViseme: Viseme | null = null;
 	const weights: Record<Viseme, number> = { aa: 0, ih: 0, ou: 0, ee: 0, oh: 0 };
+	let energyMultiplier = 1.0;
 
 	function resetTextQueue(): void {
 		textQueue = [];
@@ -166,10 +170,11 @@ export function createLipSync(vrm: VRM): LipSync {
 				updateAudioMode(delta);
 			}
 
-			// Apply viseme weights with smooth lerping
+			// Apply viseme weights with smooth lerping and energy modulation
 			const step = Math.min(delta * VISEME_LERP_SPEED, 1);
 			for (const v of ALL_VISEMES) {
-				const goal = v === activeViseme ? 0.8 : 0;
+				const baseGoal = v === activeViseme ? 0.8 : 0;
+				const goal = baseGoal * energyMultiplier; // Energy scales intensity
 				weights[v] += (goal - weights[v]) * step;
 				expr.setValue(v, weights[v]);
 			}
@@ -224,6 +229,10 @@ export function createLipSync(vrm: VRM): LipSync {
 				resetVisemeQueue();
 			}
 			activeViseme = null;
+		},
+
+		setEnergyMultiplier(energy: number): void {
+			energyMultiplier = Math.max(0, Math.min(1, energy));
 		},
 	};
 }

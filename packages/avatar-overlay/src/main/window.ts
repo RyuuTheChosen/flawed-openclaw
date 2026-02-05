@@ -146,6 +146,8 @@ export function createOverlayWindow(): BrowserWindow {
 	ipcMain.removeAllListeners(IPC.SET_TTS_ENGINE);
 	ipcMain.removeHandler(IPC.GET_TTS_VOICE);
 	ipcMain.removeAllListeners(IPC.SET_TTS_VOICE);
+	ipcMain.removeAllListeners(IPC.START_CURSOR_TRACKING);
+	ipcMain.removeAllListeners(IPC.STOP_CURSOR_TRACKING);
 
 	// IPC: click-through toggle
 	ipcMain.on(IPC.SET_IGNORE_MOUSE, (_event, ignore: unknown) => {
@@ -291,6 +293,35 @@ export function createOverlayWindow(): BrowserWindow {
 		saveTtsEngine(engine);
 		win.webContents.send(IPC.TTS_ENGINE_CHANGED, engine);
 	}
+
+	// IPC: cursor tracking for eye gaze
+	let cursorTrackingInterval: ReturnType<typeof setInterval> | null = null;
+
+	ipcMain.on(IPC.START_CURSOR_TRACKING, () => {
+		if (cursorTrackingInterval) return; // Already tracking
+
+		cursorTrackingInterval = setInterval(() => {
+			const cursor = screen.getCursorScreenPoint();
+			const display = screen.getPrimaryDisplay();
+			const { width, height } = display.workAreaSize;
+			win.webContents.send(IPC.CURSOR_POSITION, cursor.x, cursor.y, width, height);
+		}, 16); // ~60fps
+	});
+
+	ipcMain.on(IPC.STOP_CURSOR_TRACKING, () => {
+		if (cursorTrackingInterval) {
+			clearInterval(cursorTrackingInterval);
+			cursorTrackingInterval = null;
+		}
+	});
+
+	// Stop tracking when window closes
+	win.on("close", () => {
+		if (cursorTrackingInterval) {
+			clearInterval(cursorTrackingInterval);
+			cursorTrackingInterval = null;
+		}
+	});
 
 	// IPC: show context menu from renderer settings button
 	ipcMain.on(IPC.SHOW_CONTEXT_MENU, () => {

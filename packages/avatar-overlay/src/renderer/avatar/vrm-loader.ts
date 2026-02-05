@@ -1,10 +1,12 @@
 import * as THREE from "three";
-import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { GLTFLoader, type GLTF } from "three/addons/loaders/GLTFLoader.js";
 import { VRMLoaderPlugin, VRMUtils } from "@pixiv/three-vrm";
 import type { VRM } from "@pixiv/three-vrm";
+import { VRMSpringBoneLoaderPlugin } from "@pixiv/three-vrm-springbone";
 
 const loader = new GLTFLoader();
 loader.register((parser) => new VRMLoaderPlugin(parser));
+loader.register((parser) => new VRMSpringBoneLoaderPlugin(parser));
 
 function validateVrmPath(filePath: string): void {
 	// Normalize and check for directory traversal
@@ -27,6 +29,7 @@ function toFileUrl(filePath: string): string {
 export async function loadVrmModel(
 	filePath: string,
 	scene: THREE.Scene,
+	onGltfLoaded?: (gltf: GLTF) => void,
 ): Promise<VRM> {
 	validateVrmPath(filePath);
 	const url = toFileUrl(filePath);
@@ -44,6 +47,9 @@ export async function loadVrmModel(
 	// VRM 0.x models face -Z in Three.js (authored in Unity's left-handed system).
 	// The library's rotateVRM0 checks metaVersion and applies a 180° Y rotation.
 	VRMUtils.rotateVRM0(vrm);
+
+	// Call callback with gltf for spring bone setup
+	onGltfLoaded?.(gltf);
 
 	scene.add(vrm.scene);
 	return vrm;

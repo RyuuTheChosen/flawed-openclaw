@@ -4,6 +4,11 @@ import { createExpressionController, type Expression } from "./expressions.js";
 import { createLipSync, type LipSync } from "./lip-sync.js";
 import { loadAnimationLibrary, type AnimationLibrary } from "./animation-loader.js";
 import { createStateMachine, type AnimationStateMachine } from "./state-machine.js";
+import { createEyeGazeController, type EyeGazeController } from "./eye-gaze.js";
+import {
+	createHoverAwarenessController,
+	type HoverAwarenessController,
+} from "./hover-awareness.js";
 
 import type { AgentPhase } from "../../shared/types.js";
 
@@ -19,6 +24,16 @@ export interface Animator {
 	isSpeaking(): boolean;
 	initAnimations(clipPaths: Record<AgentPhase, string[]>): Promise<void>;
 	getLipSync(): LipSync;
+	setGazeScreenPosition(
+		x: number,
+		y: number,
+		windowWidth: number,
+		windowHeight: number,
+	): void;
+	setGazeTrackingMultiplier(multiplier: number): void;
+	setHovering(hovering: boolean): void;
+	getEyeGaze(): EyeGazeController;
+	getHoverAwareness(): HoverAwarenessController;
 }
 
 export function createAnimator(vrm: VRM): Animator {
@@ -29,6 +44,8 @@ export function createAnimator(vrm: VRM): Animator {
 	let currentPhase: AgentPhase = "idle";
 	const expressionCtrl = createExpressionController(vrm);
 	const lipSync = createLipSync(vrm);
+	const eyeGaze = createEyeGazeController(vrm);
+	const hoverAwareness = createHoverAwarenessController();
 
 	// Animation system state
 	let mixer: THREE.AnimationMixer | null = null;
@@ -37,6 +54,7 @@ export function createAnimator(vrm: VRM): Animator {
 	let animationsLoaded = false;
 	let initPromise: Promise<void> | null = null;
 	let pendingPhase: AgentPhase | null = null;
+	let phaseGazeMultiplier = 1.0;
 
 	const BLINK_CLOSE_DURATION = 0.06; // 60ms
 	const BLINK_OPEN_DURATION = 0.1; // 100ms
@@ -124,14 +142,35 @@ export function createAnimator(vrm: VRM): Animator {
 
 	return {
 		update(delta: number, elapsed: number): void {
+			// 1. Animation clips or procedural (bone positions)
 			if (stateMachine && animationsLoaded) {
 				stateMachine.update(delta);
 			} else {
 				updateBreathing(elapsed);
 				updateHeadSway(elapsed);
 			}
+
+			// 2. Blinking (procedural expression)
 			updateBlinking(delta, elapsed);
+
+			// 3. Eye gaze tracking
+			eyeGaze.update(delta);
+
+			// 4. Hover awareness (affects gaze multiplier + expression)
+			hoverAwareness.update(delta);
+			const gazeMultiplier = hoverAwareness.getGazeMultiplier();
+			eyeGaze.setTrackingMultiplier(gazeMultiplier * phaseGazeMultiplier);
+
+			// 5. Base expressions
 			expressionCtrl.update(delta);
+
+			// 6. Expression overlay from hover
+			const overlay = hoverAwareness.getExpressionOverlay();
+			if (overlay) {
+				expressionCtrl.applyOverlay(overlay.expression, overlay.weight);
+			}
+
+			// 7. Lip sync (viseme expressions)
 			lipSync.update(delta);
 		},
 
@@ -152,6 +191,8 @@ export function createAnimator(vrm: VRM): Animator {
 			nextBlinkTime = randomBlinkInterval();
 			expressionCtrl.setVrm(newVrm);
 			lipSync.setVrm(newVrm);
+			eyeGaze.setVrm(newVrm);
+			hoverAwareness.reset();
 
 			// Re-retarget and rebuild state machine if library is available
 			if (library && library.isLoaded()) {
@@ -177,6 +218,10 @@ export function createAnimator(vrm: VRM): Animator {
 
 		setPhase(phase: AgentPhase): void {
 			currentPhase = phase;
+
+			// Set phase-specific gaze multiplier
+			phaseGazeMultiplier = phase === "working" ? 0.3 : 1.0;
+
 			if (!stateMachine) {
 				pendingPhase = phase;
 				return;
@@ -208,6 +253,31 @@ export function createAnimator(vrm: VRM): Animator {
 
 		getLipSync(): LipSync {
 			return lipSync;
+		},
+
+		setGazeScreenPosition(
+			x: number,
+			y: number,
+			windowWidth: number,
+			windowHeight: number,
+		): void {
+			eyeGaze.setScreenPosition(x, y, windowWidth, windowHeight);
+		},
+
+		setGazeTrackingMultiplier(multiplier: number): void {
+			phaseGazeMultiplier = multiplier;
+		},
+
+		setHovering(hovering: boolean): void {
+			hoverAwareness.setHovering(hovering);
+		},
+
+		getEyeGaze(): EyeGazeController {
+			return eyeGaze;
+		},
+
+		getHoverAwareness(): HoverAwarenessController {
+			return hoverAwareness;
 		},
 	};
 }

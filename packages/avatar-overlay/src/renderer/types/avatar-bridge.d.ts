@@ -66,6 +66,13 @@ interface AvatarBridge {
 	getTtsVoice(): Promise<string>;
 	setTtsVoice(voice: string): void;
 	onTtsVoiceChanged(callback: (voice: string) => void): void;
+
+	// Cursor tracking
+	startCursorTracking(): void;
+	stopCursorTracking(): void;
+	onCursorPosition(
+		callback: (x: number, y: number, screenWidth: number, screenHeight: number) => void,
+	): void;
 }
 
 interface Window {
