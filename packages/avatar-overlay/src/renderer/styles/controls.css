@@ -1,0 +1,81 @@
+@import "./tokens.css";
+
+/* Backdrop-filter fallback for unsupported browsers */
+@supports not (backdrop-filter: blur(1px)) {
+  #controls button {
+    background: var(--glass-bg-solid) !important;
+  }
+}
+
+#controls {
+  position: absolute;
+  top: var(--space-xs);
+  right: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  opacity: 0;
+  transition: opacity var(--transition-slow);
+  pointer-events: none;
+  z-index: 10;
+}
+
+body:hover #controls,
+#controls:focus-within {
+  opacity: 1;
+}
+
+#controls button {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--surface-button);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: rgba(255, 255, 255, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  pointer-events: auto;
+  padding: 0;
+  transition:
+    background var(--transition-normal),
+    color var(--transition-normal),
+    transform var(--transition-fast);
+}
+
+#controls button:hover {
+  background: var(--surface-button-hover);
+  color: var(--text-primary);
+  transform: scale(1.05);
+}
+
+#controls button:active {
+  transform: scale(0.95);
+}
+
+#controls button:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+}
+
+#controls button svg {
+  width: 14px;
+  height: 14px;
+}
+
+#drag-handle {
+  cursor: grab;
+}
+
+#drag-handle:active {
+  cursor: grabbing;
+}
+
+#chat-toggle-btn.active {
+  background: var(--accent-blue-soft);
+  color: var(--accent-blue);
+  box-shadow: var(--shadow-glow);
+}
