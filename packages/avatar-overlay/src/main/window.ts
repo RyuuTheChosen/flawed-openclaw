@@ -19,6 +19,7 @@ import {
 	saveTtsEnabled,
 	saveTtsEngine,
 	saveTtsVoice,
+	saveVrmModelPath,
 	getPosition,
 	getZoom,
 	getOpacity,
@@ -76,7 +77,9 @@ export async function showVrmPicker(win: BrowserWindow): Promise<void> {
 		properties: ["openFile"],
 	});
 	if (!result.canceled && result.filePaths.length > 0) {
-		win.webContents.send(IPC.VRM_MODEL_CHANGED, result.filePaths[0]);
+		const selectedPath = result.filePaths[0];
+		saveVrmModelPath(selectedPath); // Persist selection
+		win.webContents.send(IPC.VRM_MODEL_CHANGED, selectedPath);
 	}
 }
 

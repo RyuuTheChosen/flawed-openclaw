@@ -9,6 +9,7 @@ import { createStdinListener, type StdinCommand } from "./stdin-listener.js";
 import { createGatewayClient } from "./gateway-client.js";
 import { IPC } from "../shared/ipc-channels.js";
 import { GATEWAY_URL_DEFAULT, CHAT_INPUT_MAX_LENGTH } from "../shared/config.js";
+import { getVrmModelPath, saveVrmModelPath } from "./persistence/index.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -75,10 +76,13 @@ app.whenReady().then(() => {
 	const wm = createWindowManager();
 	createTray(wm);
 
-	// Return VRM model path (CLI override or default)
+	// Return VRM model path (CLI override > persisted > default)
+	const defaultVrmPath = path.join(__dirname, "..", "..", "..", "assets", "models", "default-avatar.vrm");
 	ipcMain.handle(IPC.GET_VRM_PATH, () => {
 		if (cliVrmPath) return cliVrmPath;
-		return path.join(__dirname, "..", "..", "..", "assets", "models", "default-avatar.vrm");
+		const persisted = getVrmModelPath();
+		if (persisted && fs.existsSync(persisted)) return persisted;
+		return defaultVrmPath;
 	});
 
 	// Return animation clip paths from assets/animations/{phase}/ directories

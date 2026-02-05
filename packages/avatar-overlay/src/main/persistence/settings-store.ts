@@ -148,6 +148,20 @@ export function getTtsVoice(): string {
 	return settings.ttsVoice ?? TTS_VOICE_DEFAULT;
 }
 
+export function saveVrmModelPath(path: string): void {
+	const current = getStore().getCache() ?? loadSettings();
+	const updated: Settings = {
+		...current,
+		vrmModelPath: path,
+	};
+	getStore().save(updated);
+}
+
+export function getVrmModelPath(): string | undefined {
+	const settings = getStore().getCache() ?? loadSettings();
+	return settings.vrmModelPath;
+}
+
 export async function flushSettings(): Promise<void> {
 	await getStore().flush();
 }

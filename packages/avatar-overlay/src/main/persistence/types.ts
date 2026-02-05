@@ -35,6 +35,7 @@ export const SettingsSchema = z.object({
 	ttsEnabled: z.boolean().default(TTS_ENABLED_DEFAULT),
 	ttsEngine: z.enum(["web-speech", "kokoro"]).default(TTS_ENGINE_DEFAULT),
 	ttsVoice: z.string().default(TTS_VOICE_DEFAULT),
+	vrmModelPath: z.string().optional(),
 });
 
 export type Settings = z.infer<typeof SettingsSchema>;
