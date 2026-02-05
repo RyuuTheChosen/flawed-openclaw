@@ -10,4 +10,10 @@ export const IPC = {
 	AGENT_STATE: "avatar:agent-state",
 	GET_ANIMATIONS_CONFIG: "avatar:get-animations-config",
 	SEND_CHAT: "avatar:send-chat",
+	TOGGLE_CHAT: "avatar:toggle-chat",
+	CHAT_VISIBILITY: "avatar:chat-visibility",
+	SET_IGNORE_MOUSE_CHAT: "chat:set-ignore-mouse",
+	CHAT_CONTENT_HIDDEN: "chat:content-hidden",
+	CHAT_CONTENT_SHOWN: "chat:content-shown",
+	SHOW_CHAT_BUBBLE: "chat:show-bubble",
 } as const;

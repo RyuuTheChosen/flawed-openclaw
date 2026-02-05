@@ -13,6 +13,7 @@
     "src/",
     "dist/main/",
     "dist/renderer-bundle/",
+    "dist/chat-renderer-bundle/",
     "assets/",
     "openclaw.plugin.json"
   ],

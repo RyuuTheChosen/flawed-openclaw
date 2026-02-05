@@ -40,7 +40,7 @@ export function createGatewayClient(
 	onModelSwitch: (vrmPath: string) => void,
 	agentConfigs?: Record<string, { vrmPath?: string }>,
 	authToken?: string,
-): { destroy: () => void; sendChat: (text: string, sessionKey: string) => void; getCurrentAgentId: () => string | null } {
+): { destroy: () => void; sendChat: (text: string, sessionKey: string | null) => void; getCurrentAgentId: () => string | null } {
 	let ws: WebSocket | null = null;
 	let destroyed = false;
 	let backoffMs = GATEWAY_RECONNECT_BASE_MS;
@@ -51,9 +51,11 @@ export function createGatewayClient(
 
 	function processAgentEvent(evt: AgentEventPayload): void {
 		const { stream, data, sessionKey } = evt;
+		console.log("avatar-overlay: agent event received:", JSON.stringify(evt));
 
 		// Track agent changes for per-agent VRM switching
 		if (sessionKey && sessionKey !== currentAgentId) {
+			console.log("avatar-overlay: setting currentAgentId to:", sessionKey);
 			currentAgentId = sessionKey;
 			if (agentConfigs?.[sessionKey]?.vrmPath) {
 				onModelSwitch(agentConfigs[sessionKey].vrmPath!);
@@ -102,14 +104,35 @@ export function createGatewayClient(
 				return;
 			}
 
-			// Response frames (for our connect request)
+			// Response frames (for our connect request or agent list)
 			if (parsed?.type === "res") {
 				const res = parsed as ResponseFrame;
 				if (res.ok) {
-					console.log("avatar-overlay: gateway connected successfully");
-					backoffMs = GATEWAY_RECONNECT_BASE_MS;
+					const payload = res.payload as Record<string, unknown> | undefined;
+					// Check if this is an agents list response
+					if (payload?.agents && Array.isArray(payload.agents)) {
+						const agents = payload.agents as Array<Record<string, unknown>>;
+						if (agents.length > 0 && !currentAgentId) {
+							// Use first agent's sessionKey as default
+							const firstAgent = agents[0];
+							const sessionKey = firstAgent.sessionKey ?? firstAgent.id ?? `agent:${firstAgent.name}:main`;
+							if (typeof sessionKey === "string") {
+								currentAgentId = sessionKey;
+								console.log("avatar-overlay: auto-detected agent:", currentAgentId);
+							}
+						}
+					}
+					// Connect success
+					if (connectSent) {
+						console.log("avatar-overlay: gateway connected successfully");
+						backoffMs = GATEWAY_RECONNECT_BASE_MS;
+						// Request agents list if we don't have one yet
+						if (!currentAgentId) {
+							requestAgentsList();
+						}
+					}
 				} else {
-					console.error("avatar-overlay: gateway connect rejected:", res.error?.message ?? "unknown");
+					console.error("avatar-overlay: gateway response error:", res.error?.message ?? "unknown");
 				}
 			}
 		} catch {
@@ -155,6 +178,18 @@ export function createGatewayClient(
 		connectSent = false;
 		if (connectTimer) clearTimeout(connectTimer);
 		connectTimer = setTimeout(() => sendConnect(), 750);
+	}
+
+	function requestAgentsList(): void {
+		if (!ws || ws.readyState !== WebSocket.OPEN) return;
+		const frame = {
+			type: "req",
+			id: randomUUID(),
+			method: "agents.list",
+			params: {},
+		};
+		console.log("avatar-overlay: requesting agents list");
+		ws.send(JSON.stringify(frame));
 	}
 
 	function connect(): void {
@@ -204,18 +239,25 @@ export function createGatewayClient(
 			}
 		},
 
-		sendChat(text: string, sessionKey: string) {
-			if (!ws || ws.readyState !== WebSocket.OPEN) return;
+		sendChat(text: string, sessionKey: string | null) {
+			// Use provided sessionKey, or fall back to auto-detected agent, or default
+			const effectiveSessionKey = sessionKey ?? currentAgentId ?? "agent:main:main";
+			console.log("avatar-overlay: sendChat called, ws state:", ws?.readyState, "sessionKey:", effectiveSessionKey);
+			if (!ws || ws.readyState !== WebSocket.OPEN) {
+				console.log("avatar-overlay: WebSocket not open, message dropped");
+				return;
+			}
 			const frame = {
 				type: "req",
 				id: randomUUID(),
 				method: "chat.send",
 				params: {
-					sessionKey,
+					sessionKey: effectiveSessionKey,
 					message: text,
 					idempotencyKey: randomUUID(),
 				},
 			};
+			console.log("avatar-overlay: sending frame:", JSON.stringify(frame));
 			ws.send(JSON.stringify(frame));
 		},
 

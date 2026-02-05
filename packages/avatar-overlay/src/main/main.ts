@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import { fileURLToPath } from "node:url";
-import { createOverlayWindow } from "./window.js";
+import { createWindowManager } from "./window-manager.js";
 import { createTray } from "./tray.js";
 import { createStdinListener, type StdinCommand } from "./stdin-listener.js";
 import { createGatewayClient } from "./gateway-client.js";
@@ -72,8 +72,8 @@ if (!gotLock) {
 }
 
 app.whenReady().then(() => {
-	const win = createOverlayWindow();
-	createTray(win);
+	const wm = createWindowManager();
+	createTray(wm);
 
 	// Return VRM model path (CLI override or default)
 	ipcMain.handle(IPC.GET_VRM_PATH, () => {
@@ -112,16 +112,16 @@ app.whenReady().then(() => {
 	const cleanupStdin = createStdinListener((cmd: StdinCommand) => {
 		switch (cmd.type) {
 			case "show":
-				win.show();
+				wm.showAvatar();
 				break;
 			case "hide":
-				win.hide();
+				wm.hideAll();
 				break;
 			case "shutdown":
 				app.quit();
 				break;
 			case "model-switch":
-				win.webContents.send(IPC.VRM_MODEL_CHANGED, cmd.vrmPath);
+				wm.sendToAvatar(IPC.VRM_MODEL_CHANGED, cmd.vrmPath);
 				break;
 		}
 	});
@@ -132,23 +132,30 @@ app.whenReady().then(() => {
 	console.log(`avatar-overlay: connecting to ${gatewayUrl} (auth=${authToken ? "token" : "none"})`);
 	const gw = createGatewayClient(
 		gatewayUrl,
-		(state) => win.webContents.send(IPC.AGENT_STATE, state),
-		(vrmPath) => win.webContents.send(IPC.VRM_MODEL_CHANGED, vrmPath),
+		(state) => wm.sendAgentState(state),
+		(vrmPath) => wm.sendToAvatar(IPC.VRM_MODEL_CHANGED, vrmPath),
 		agentConfigs,
 		authToken,
 	);
 
 	// IPC: send chat message to active agent
 	ipcMain.on(IPC.SEND_CHAT, (_event, text: unknown) => {
-		if (typeof text !== "string" || text.trim().length === 0 || text.length > CHAT_INPUT_MAX_LENGTH) return;
+		console.log("avatar-overlay: SEND_CHAT received:", text);
+		if (typeof text !== "string" || text.trim().length === 0 || text.length > CHAT_INPUT_MAX_LENGTH) {
+			console.log("avatar-overlay: SEND_CHAT rejected (validation failed)");
+			return;
+		}
 		const agentId = gw.getCurrentAgentId();
-		if (agentId) gw.sendChat(text.trim(), agentId);
+		console.log("avatar-overlay: current agentId:", agentId);
+		console.log("avatar-overlay: sending chat to gateway");
+		gw.sendChat(text.trim(), agentId);
 	});
 
 	// Clean up resources on quit
 	app.on("before-quit", () => {
 		gw.destroy();
 		cleanupStdin();
+		wm.destroyAll();
 	});
 });
 

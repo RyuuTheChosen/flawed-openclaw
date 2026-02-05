@@ -139,7 +139,6 @@ export function createOverlayWindow(): BrowserWindow {
 	ipcMain.removeHandler(IPC.GET_CAMERA_ZOOM);
 	ipcMain.removeAllListeners(IPC.SAVE_CAMERA_ZOOM);
 	ipcMain.removeAllListeners(IPC.SHOW_CONTEXT_MENU);
-	ipcMain.removeAllListeners(IPC.SEND_CHAT);
 
 	// IPC: click-through toggle
 	ipcMain.on(IPC.SET_IGNORE_MOUSE, (_event, ignore: unknown) => {

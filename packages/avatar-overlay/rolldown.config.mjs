@@ -1,13 +1,24 @@
 import { defineConfig } from "rolldown";
-import path from "node:path";
 
-export default defineConfig({
-	input: "dist/renderer/renderer/renderer.js",
-	output: {
-		file: "dist/renderer-bundle/renderer.js",
-		format: "esm",
+export default defineConfig([
+	{
+		input: "dist/renderer/renderer/renderer.js",
+		output: {
+			file: "dist/renderer-bundle/renderer.js",
+			format: "esm",
+		},
+		resolve: {
+			extensions: [".js", ".mjs"],
+		},
 	},
-	resolve: {
-		extensions: [".js", ".mjs"],
+	{
+		input: "dist/renderer/renderer/chat-window/chat-renderer.js",
+		output: {
+			file: "dist/chat-renderer-bundle/chat-renderer.js",
+			format: "esm",
+		},
+		resolve: {
+			extensions: [".js", ".mjs"],
+		},
 	},
-});
+]);

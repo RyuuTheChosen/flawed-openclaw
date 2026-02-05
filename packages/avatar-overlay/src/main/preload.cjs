@@ -12,6 +12,8 @@ const IPC = {
 	AGENT_STATE: "avatar:agent-state",
 	GET_ANIMATIONS_CONFIG: "avatar:get-animations-config",
 	SEND_CHAT: "avatar:send-chat",
+	TOGGLE_CHAT: "avatar:toggle-chat",
+	CHAT_VISIBILITY: "avatar:chat-visibility",
 };
 
 contextBridge.exposeInMainWorld("avatarBridge", {
@@ -66,5 +68,16 @@ contextBridge.exposeInMainWorld("avatarBridge", {
 
 	sendChat(text) {
 		ipcRenderer.send(IPC.SEND_CHAT, text);
+	},
+
+	toggleChat() {
+		ipcRenderer.send(IPC.TOGGLE_CHAT);
+	},
+
+	onChatVisibility(callback) {
+		ipcRenderer.removeAllListeners(IPC.CHAT_VISIBILITY);
+		ipcRenderer.on(IPC.CHAT_VISIBILITY, (_event, visible) => {
+			callback(visible);
+		});
 	},
 });

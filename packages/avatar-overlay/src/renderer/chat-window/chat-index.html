@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data: blob:; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' file: data: blob:; connect-src 'self' file: data: blob:" />
+  <title>OpenClaw Chat</title>
+  <style>
+    * { margin: 0; padding: 0; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: transparent;
+    }
+    #chat-container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+    }
+    #chat-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: rgba(20, 20, 30, 0.92);
+      border-radius: 12px;
+      padding: 8px;
+      min-height: 0;
+    }
+    #chat-tail {
+      width: 0;
+      height: 0;
+      margin: 0 auto;
+      border-left: 10px solid transparent;
+      border-right: 10px solid transparent;
+      border-top: 8px solid rgba(20, 20, 30, 0.92);
+    }
+
+    #chat-bubble {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      opacity: 1;
+      pointer-events: auto;
+    }
+    #chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      font-family: "Consolas", "Monaco", "Courier New", monospace;
+      font-size: 11px;
+      line-height: 1.4;
+      color: #e0e0e0;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+    }
+    .chat-assistant-msg {
+      padding: 4px 0;
+      color: #c8e6ff;
+      word-wrap: break-word;
+    }
+    .chat-user-msg {
+      padding: 4px 0;
+      color: #ffe0b2;
+      text-align: right;
+      word-wrap: break-word;
+    }
+    .chat-status {
+      padding: 4px 0;
+      color: #a0a0a0;
+      font-style: italic;
+    }
+    #chat-input-row {
+      display: flex;
+      gap: 4px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      padding-top: 6px;
+      margin-top: 4px;
+    }
+    #chat-input {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      color: #e0e0e0;
+      font-family: inherit;
+      font-size: 11px;
+      padding: 6px 10px;
+      outline: none;
+    }
+    #chat-input:focus {
+      border-color: rgba(150, 200, 255, 0.4);
+    }
+    #chat-input::placeholder {
+      color: rgba(255, 255, 255, 0.3);
+    }
+  </style>
+</head>
+<body>
+  <div id="chat-container">
+    <div id="chat-body"></div>
+    <div id="chat-tail"></div>
+  </div>
+  <script type="module" src="./chat-renderer.js"></script>
+</body>
+</html>

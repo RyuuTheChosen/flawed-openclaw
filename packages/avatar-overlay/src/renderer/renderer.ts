@@ -4,7 +4,6 @@ import { createScene } from "./avatar/scene.js";
 import { loadVrmModel, unloadVrmModel } from "./avatar/vrm-loader.js";
 import { createAnimator, type Animator } from "./avatar/animator.js";
 import { CAMERA_ZOOM_STEP } from "../shared/config.js";
-import { createChatBubble } from "./ui/chat-bubble.js";
 
 const bridge = window.avatarBridge;
 
@@ -15,12 +14,8 @@ async function boot(): Promise<void> {
 	const canvas = document.getElementById("avatar-canvas") as HTMLCanvasElement;
 	const { renderer, scene, camera, setCameraZoom } = createScene(canvas);
 
-	// Chat bubble overlay (created before agent state listener so it's available in the callback)
-	const chatBubble = createChatBubble(document.body, bridge);
-
 	// Register agent state listener early (before async VRM load)
 	bridge.onAgentState((state) => {
-		chatBubble.handleAgentState(state);
 		if (!animator) return;
 
 		switch (state.phase) {
@@ -132,18 +127,15 @@ async function boot(): Promise<void> {
 		bridge.showContextMenu();
 	});
 
-	// Canvas click toggles chat bubble (with drag guard)
-	let mousedownX = 0;
-	let mousedownY = 0;
-	canvas.addEventListener("mousedown", (e) => {
-		mousedownX = e.screenX;
-		mousedownY = e.screenY;
+	// Chat toggle button → toggle chat window via main process
+	const chatToggleBtn = document.getElementById("chat-toggle-btn")!;
+	chatToggleBtn.addEventListener("click", () => {
+		bridge.toggleChat();
 	});
-	canvas.addEventListener("click", (e) => {
-		const dx = e.screenX - mousedownX;
-		const dy = e.screenY - mousedownY;
-		if (Math.sqrt(dx * dx + dy * dy) > 5) return;
-		chatBubble.toggle();
+
+	// Listen for chat visibility changes to update button highlight
+	bridge.onChatVisibility((visible: boolean) => {
+		chatToggleBtn.classList.toggle("active", visible);
 	});
 
 	// Animation loop

@@ -20,11 +20,10 @@
     #controls {
       position: absolute;
       top: 4px;
-      left: 0;
-      right: 0;
+      right: 8px;
       display: flex;
-      justify-content: space-between;
-      padding: 0 8px;
+      flex-direction: column;
+      gap: 4px;
       opacity: 0;
       transition: opacity 200ms ease;
       pointer-events: none;
@@ -61,74 +60,8 @@
     #drag-handle:active {
       cursor: grabbing;
     }
-
-    #chat-bubble {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      height: 60%;
-      display: flex;
-      flex-direction: column;
-      box-sizing: border-box;
-      background: rgba(20, 20, 30, 0.85);
-      border-radius: 16px 16px 0 0;
-      padding: 8px;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 300ms ease;
-      z-index: 20;
-    }
-    #chat-messages {
-      flex: 1;
-      overflow-y: auto;
-      overflow-x: hidden;
-      font-family: "Consolas", "Monaco", "Courier New", monospace;
-      font-size: 11px;
-      line-height: 1.4;
-      color: #e0e0e0;
-      scrollbar-width: thin;
-      scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
-    }
-    .chat-assistant-msg {
-      padding: 4px 0;
-      color: #c8e6ff;
-      word-wrap: break-word;
-    }
-    .chat-user-msg {
-      padding: 4px 0;
-      color: #ffe0b2;
-      text-align: right;
-      word-wrap: break-word;
-    }
-    .chat-status {
-      padding: 4px 0;
-      color: #a0a0a0;
-      font-style: italic;
-    }
-    #chat-input-row {
-      display: flex;
-      gap: 4px;
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
-      padding-top: 6px;
-      margin-top: 4px;
-    }
-    #chat-input {
-      flex: 1;
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      border-radius: 8px;
-      color: #e0e0e0;
-      font-family: inherit;
-      font-size: 11px;
-      padding: 6px 10px;
-      outline: none;
-    }
-    #chat-input:focus {
-      border-color: rgba(150, 200, 255, 0.4);
-    }
-    #chat-input::placeholder {
-      color: rgba(255, 255, 255, 0.3);
+    #chat-toggle-btn.active {
+      background: rgba(80, 140, 220, 0.65);
     }
   </style>
 </head>
@@ -136,6 +69,9 @@
   <div id="controls">
     <button id="drag-handle" title="Drag to move">
       <svg viewBox="0 0 16 16"><circle cx="5" cy="3" r="1.5"/><circle cx="11" cy="3" r="1.5"/><circle cx="5" cy="8" r="1.5"/><circle cx="11" cy="8" r="1.5"/><circle cx="5" cy="13" r="1.5"/><circle cx="11" cy="13" r="1.5"/></svg>
+    </button>
+    <button id="chat-toggle-btn" title="Toggle chat">
+      <svg viewBox="0 0 16 16"><path d="M2 2h12a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H5l-3 3V3a1 1 0 0 1 1-1z"/></svg>
     </button>
     <button id="settings-btn" title="Settings">
       <svg viewBox="0 0 16 16"><path d="M6.5.5h3l.4 2 1.3.5 1.7-1.2 2.1 2.1-1.2 1.7.5 1.3 2 .4v3l-2 .4-.5 1.3 1.2 1.7-2.1 2.1-1.7-1.2-1.3.5-.4 2h-3l-.4-2-1.3-.5-1.7 1.2L1 13.4l1.2-1.7-.5-1.3-2-.4v-3l2-.4.5-1.3L1 3.6 3.1 1.5l1.7 1.2 1.3-.5.4-2z"/><circle cx="8" cy="8" r="2.5" fill="rgba(0,0,0,0.45)"/></svg>

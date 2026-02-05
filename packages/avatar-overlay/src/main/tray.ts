@@ -1,14 +1,15 @@
-import { Tray, Menu, app, type BrowserWindow } from "electron";
+import { Tray, Menu, app } from "electron";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { showVrmPicker } from "./window.js";
+import type { WindowManager } from "./window-manager.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 let tray: Tray | null = null;
 
-export function createTray(win: BrowserWindow): Tray {
+export function createTray(wm: WindowManager): Tray {
 	const iconPath = path.join(__dirname, "..", "..", "..", "assets", "icon.png");
 	tray = new Tray(iconPath);
 	tray.setToolTip("OpenClaw Avatar");
@@ -16,12 +17,12 @@ export function createTray(win: BrowserWindow): Tray {
 	function rebuildMenu(): void {
 		const menu = Menu.buildFromTemplate([
 			{
-				label: win.isVisible() ? "Hide Avatar" : "Show Avatar",
+				label: wm.avatarWin.isVisible() ? "Hide Avatar" : "Show Avatar",
 				click() {
-					if (win.isVisible()) {
-						win.hide();
+					if (wm.avatarWin.isVisible()) {
+						wm.hideAll();
 					} else {
-						win.show();
+						wm.showAvatar();
 					}
 					rebuildMenu();
 				},
@@ -29,7 +30,7 @@ export function createTray(win: BrowserWindow): Tray {
 			{
 				label: "Change Avatar Model\u2026",
 				click() {
-					showVrmPicker(win);
+					showVrmPicker(wm.avatarWin);
 				},
 			},
 			{ type: "separator" },
@@ -46,10 +47,10 @@ export function createTray(win: BrowserWindow): Tray {
 	rebuildMenu();
 
 	tray.on("click", () => {
-		if (win.isVisible()) {
-			win.hide();
+		if (wm.avatarWin.isVisible()) {
+			wm.hideAll();
 		} else {
-			win.show();
+			wm.showAvatar();
 		}
 		rebuildMenu();
 	});

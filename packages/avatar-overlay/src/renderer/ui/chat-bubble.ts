@@ -8,13 +8,20 @@ import {
 
 export interface ChatBubble {
 	handleAgentState(state: AgentState): void;
+	show(): void;
+	hide(): void;
 	toggle(): void;
 	destroy(): void;
 }
 
+export interface ChatBubbleOptions {
+	onVisibilityChange?: (visible: boolean) => void;
+}
+
 export function createChatBubble(
 	parent: HTMLElement,
-	bridge: Pick<AvatarBridge, "sendChat">,
+	bridge: Pick<AvatarBridge | ChatBridge, "sendChat">,
+	options?: ChatBubbleOptions,
 ): ChatBubble {
 	// --- DOM ---
 	const container = document.createElement("div");
@@ -64,12 +71,15 @@ export function createChatBubble(
 		visible = true;
 		container.style.opacity = "1";
 		container.style.pointerEvents = "auto";
+		inputEl.focus();
+		options?.onVisibilityChange?.(true);
 	}
 
 	function hide(): void {
 		visible = false;
 		container.style.opacity = "0";
 		container.style.pointerEvents = "none";
+		options?.onVisibilityChange?.(false);
 	}
 
 	// --- Status div helpers ---
@@ -228,5 +238,5 @@ export function createChatBubble(
 		container.remove();
 	}
 
-	return { handleAgentState, toggle, destroy };
+	return { handleAgentState, show, hide, toggle, destroy };
 }

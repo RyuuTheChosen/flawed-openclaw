@@ -13,6 +13,10 @@ export const GATEWAY_URL_DEFAULT = "ws://127.0.0.1:18789";
 export const GATEWAY_RECONNECT_BASE_MS = 3_000;
 export const GATEWAY_RECONNECT_MAX_MS = 30_000;
 
+export const CHAT_WINDOW_WIDTH = 300;
+export const CHAT_WINDOW_HEIGHT = 280;
+export const CHAT_WINDOW_GAP = 4;
+
 export const CHAT_IDLE_FADE_MS = 10_000;
 export const CHAT_FADE_TRANSITION_MS = 300;
 export const CHAT_MAX_HISTORY = 200;
