@@ -8,4 +8,5 @@ export const IPC = {
 	SAVE_CAMERA_ZOOM: "avatar:save-camera-zoom",
 	SET_CAMERA_ZOOM: "avatar:set-camera-zoom",
 	AGENT_STATE: "avatar:agent-state",
+	GET_ANIMATIONS_CONFIG: "avatar:get-animations-config",
 } as const;

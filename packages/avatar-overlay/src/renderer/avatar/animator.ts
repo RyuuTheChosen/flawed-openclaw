@@ -1,6 +1,9 @@
+import * as THREE from "three";
 import type { VRM } from "@pixiv/three-vrm";
 import { createExpressionController, type Expression } from "./expressions.js";
 import { createLipSync } from "./lip-sync.js";
+import { loadAnimationLibrary, type AnimationLibrary } from "./animation-loader.js";
+import { createStateMachine, type AnimationStateMachine } from "./state-machine.js";
 
 import type { AgentPhase } from "../../shared/types.js";
 
@@ -14,6 +17,7 @@ export interface Animator {
 	feedLipSyncText(text: string): void;
 	stopLipSync(): void;
 	isSpeaking(): boolean;
+	initAnimations(clipPaths: Record<AgentPhase, string[]>): Promise<void>;
 }
 
 export function createAnimator(vrm: VRM): Animator {
@@ -24,6 +28,14 @@ export function createAnimator(vrm: VRM): Animator {
 	let currentPhase: AgentPhase = "idle";
 	const expressionCtrl = createExpressionController(vrm);
 	const lipSync = createLipSync(vrm);
+
+	// Animation system state
+	let mixer: THREE.AnimationMixer | null = null;
+	let library: AnimationLibrary | null = null;
+	let stateMachine: AnimationStateMachine | null = null;
+	let animationsLoaded = false;
+	let initPromise: Promise<void> | null = null;
+	let pendingPhase: AgentPhase | null = null;
 
 	const BLINK_CLOSE_DURATION = 0.06; // 60ms
 	const BLINK_OPEN_DURATION = 0.1; // 100ms
@@ -74,39 +86,88 @@ export function createAnimator(vrm: VRM): Animator {
 		const head = currentVrm.humanoid?.getNormalizedBoneNode("head");
 		if (!head) return;
 
-		// Modulate sway amplitude by agent phase
 		const swayMultiplier = currentPhase === "thinking" ? 2.5 : currentPhase === "speaking" ? 1.5 : 1.0;
 
-		// Lissajous sine waves for natural-looking sway
 		head.rotation.x = Math.sin(elapsed * 0.5) * 0.01 * swayMultiplier;
 		head.rotation.y = Math.sin(elapsed * 0.3) * 0.01 * swayMultiplier;
 
-		// Working: slight downward head tilt
 		if (currentPhase === "working") {
 			head.rotation.x += 0.05;
 		}
 
-		// Speaking: add nodding motion
 		if (currentPhase === "speaking") {
 			head.rotation.x += Math.sin(elapsed * 3.0) * 0.015;
 		}
 	}
 
+	async function doInitAnimations(clipPaths: Record<AgentPhase, string[]>): Promise<void> {
+		library = await loadAnimationLibrary(clipPaths, currentVrm);
+
+		if (!library.isLoaded()) {
+			// No FBX files loaded at all - stay on procedural fallback
+			return;
+		}
+
+		mixer = new THREE.AnimationMixer(currentVrm.scene);
+		stateMachine = createStateMachine(mixer, library);
+		animationsLoaded = true;
+
+		// Apply any phase that was set before init completed
+		if (pendingPhase) {
+			stateMachine.setPhase(pendingPhase);
+			pendingPhase = null;
+		} else {
+			stateMachine.setPhase(currentPhase);
+		}
+	}
+
 	return {
 		update(delta: number, elapsed: number): void {
-			updateBreathing(elapsed);
+			if (stateMachine && animationsLoaded) {
+				stateMachine.update(delta);
+			} else {
+				updateBreathing(elapsed);
+				updateHeadSway(elapsed);
+			}
 			updateBlinking(delta, elapsed);
-			updateHeadSway(elapsed);
 			expressionCtrl.update(delta);
 			lipSync.update(delta);
 		},
 
 		setVrm(newVrm: VRM): void {
+			// Dispose old animation resources
+			if (stateMachine) {
+				stateMachine.dispose();
+				stateMachine = null;
+			}
+			if (mixer) {
+				mixer.stopAllAction();
+				mixer.uncacheRoot(mixer.getRoot());
+				mixer = null;
+			}
+
 			currentVrm = newVrm;
 			blinkPhase = "idle";
 			nextBlinkTime = randomBlinkInterval();
 			expressionCtrl.setVrm(newVrm);
 			lipSync.setVrm(newVrm);
+
+			// Re-retarget and rebuild state machine if library is available
+			if (library && library.isLoaded()) {
+				library.retargetToVrm(newVrm);
+				mixer = new THREE.AnimationMixer(newVrm.scene);
+				stateMachine = createStateMachine(mixer, library);
+				animationsLoaded = true;
+
+				if (pendingPhase) {
+					stateMachine.setPhase(pendingPhase);
+					pendingPhase = null;
+				} else {
+					stateMachine.setPhase(currentPhase);
+				}
+			} else {
+				animationsLoaded = false;
+			}
 		},
 
 		setExpression(expression: Expression): void {
@@ -115,6 +176,11 @@ export function createAnimator(vrm: VRM): Animator {
 
 		setPhase(phase: AgentPhase): void {
 			currentPhase = phase;
+			if (!stateMachine) {
+				pendingPhase = phase;
+				return;
+			}
+			stateMachine.setPhase(phase);
 		},
 
 		feedLipSyncText(text: string): void {
@@ -127,6 +193,16 @@ export function createAnimator(vrm: VRM): Animator {
 
 		isSpeaking(): boolean {
 			return lipSync.isSpeaking();
+		},
+
+		async initAnimations(clipPaths: Record<AgentPhase, string[]>): Promise<void> {
+			if (initPromise) return initPromise;
+			initPromise = doInitAnimations(clipPaths);
+			try {
+				await initPromise;
+			} finally {
+				initPromise = null;
+			}
 		},
 	};
 }

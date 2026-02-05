@@ -24,7 +24,8 @@
   "dependencies": {
     "three": "~0.170.0",
     "@pixiv/three-vrm": "~3.3.0",
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "fflate": "^0.8.2"
   },
   "devDependencies": {
     "openclaw": "workspace:*",

@@ -60,6 +60,16 @@ async function boot(): Promise<void> {
 	currentVrm = await loadVrmModel(vrmPath, scene);
 	animator = createAnimator(currentVrm);
 
+	// Load animation clips (non-blocking, avatar shows procedural fallback while loading)
+	const animConfig = await bridge.getAnimationsConfig();
+	if (animConfig) {
+		try {
+			await animator.initAnimations(animConfig.clips);
+		} catch (err) {
+			console.error("Failed to load animations, keeping procedural fallback:", err);
+		}
+	}
+
 	// Restore persisted camera zoom before first frame
 	let currentZoom = await bridge.getCameraZoom();
 	currentZoom = setCameraZoom(currentZoom);

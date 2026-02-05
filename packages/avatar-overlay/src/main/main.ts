@@ -81,6 +81,33 @@ app.whenReady().then(() => {
 		return path.join(__dirname, "..", "..", "..", "assets", "default-avatar.vrm");
 	});
 
+	// Return animation clip paths from assets/animations/{phase}/ directories
+	ipcMain.handle(IPC.GET_ANIMATIONS_CONFIG, () => {
+		const animBase = path.resolve(__dirname, "..", "..", "..", "assets", "animations");
+		const phases = ["idle", "thinking", "speaking", "working"] as const;
+		const clips: Record<string, string[]> = {};
+
+		for (const phase of phases) {
+			const dir = path.join(animBase, phase);
+			try {
+				clips[phase] = fs.readdirSync(dir)
+					.filter(f => f.toLowerCase().endsWith(".fbx"))
+					.filter(f => !/[\\\/]/.test(f))
+					.map(f => {
+						const full = fs.realpathSync(path.join(dir, f));
+						if (!full.replace(/\\/g, "/").startsWith(animBase.replace(/\\/g, "/"))) {
+							return null;
+						}
+						return full;
+					})
+					.filter((f): f is string => f !== null);
+			} catch {
+				clips[phase] = [];
+			}
+		}
+		return { clips };
+	});
+
 	// Stdin listener for commands from the plugin service
 	const cleanupStdin = createStdinListener((cmd: StdinCommand) => {
 		switch (cmd.type) {

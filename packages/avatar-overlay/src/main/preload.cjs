@@ -10,6 +10,7 @@ const IPC = {
 	SAVE_CAMERA_ZOOM: "avatar:save-camera-zoom",
 	SET_CAMERA_ZOOM: "avatar:set-camera-zoom",
 	AGENT_STATE: "avatar:agent-state",
+	GET_ANIMATIONS_CONFIG: "avatar:get-animations-config",
 };
 
 contextBridge.exposeInMainWorld("avatarBridge", {
@@ -49,6 +50,10 @@ contextBridge.exposeInMainWorld("avatarBridge", {
 		ipcRenderer.on(IPC.SET_CAMERA_ZOOM, (_event, zoom) => {
 			callback(zoom);
 		});
+	},
+
+	getAnimationsConfig() {
+		return ipcRenderer.invoke(IPC.GET_ANIMATIONS_CONFIG);
 	},
 
 	onAgentState(callback) {
