@@ -41,6 +41,10 @@ export async function loadVrmModel(
 		obj.frustumCulled = false;
 	});
 
+	// VRM 0.x models face -Z in Three.js (authored in Unity's left-handed system).
+	// The library's rotateVRM0 checks metaVersion and applies a 180° Y rotation.
+	VRMUtils.rotateVRM0(vrm);
+
 	scene.add(vrm.scene);
 	return vrm;
 }

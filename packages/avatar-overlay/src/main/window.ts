@@ -85,8 +85,10 @@ function getDefaultPosition(): { x: number; y: number } {
 }
 
 export async function showVrmPicker(win: BrowserWindow): Promise<void> {
+	const modelsDir = path.join(__dirname, "..", "..", "..", "assets", "models");
 	const result = await dialog.showOpenDialog(win, {
 		title: "Select VRM Model",
+		defaultPath: modelsDir,
 		filters: [{ name: "VRM Models", extensions: ["vrm"] }],
 		properties: ["openFile"],
 	});

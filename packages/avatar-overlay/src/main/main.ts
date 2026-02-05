@@ -78,7 +78,7 @@ app.whenReady().then(() => {
 	// Return VRM model path (CLI override or default)
 	ipcMain.handle(IPC.GET_VRM_PATH, () => {
 		if (cliVrmPath) return cliVrmPath;
-		return path.join(__dirname, "..", "..", "..", "assets", "default-avatar.vrm");
+		return path.join(__dirname, "..", "..", "..", "assets", "models", "default-avatar.vrm");
 	});
 
 	// Return animation clip paths from assets/animations/{phase}/ directories

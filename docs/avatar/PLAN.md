@@ -127,12 +127,13 @@ Scene, VRM loader, and base animator (breathing, blinking, head sway) were imple
 - WebGLRenderer with `alpha: true` (transparent background)
 - Perspective camera framing avatar from chest up
 - Soft ambient + directional light (anime-style)
-- `setCameraZoom(z)` — clamps Z to 0.5–3.5, lerps lookAt Y (1.45 at close-up → 0.75 at full body), returns clamped value
+- `setCameraZoom(z)` — clamps Z to 0.5–3.5, lerps lookAt Y (1.55 at close-up → 0.85 at full body), returns clamped value. lookAtY was raised by 0.1 across all zoom levels to lower the model in the viewport (non-standard-height models were clipping above the canvas edge).
 
 ### `vrm-loader.ts` ✅
 - Load `.vrm` via GLTFLoader + VRMLoaderPlugin
-- Default: bundled `AvatarSample_A.vrm` from VRM Consortium (MIT license)
+- Default: bundled `default-avatar.vrm` in `assets/models/`
 - User can swap via tray menu file picker
+- **VRM 0.x facing fix**: Uses `VRMUtils.rotateVRM0(vrm)` to rotate VRM 0.x models 180° around Y. VRM 0.x models were authored in Unity's left-handed coordinate system; when exported to glTF (right-handed), they face -Z instead of +Z. The library utility checks `vrm.meta.metaVersion === "0"` and applies the correction automatically. A previous custom `correctFacingDirection()` approach using shoulder cross-products was removed because it cannot distinguish a coordinate-system flip from a correct orientation (arm X-positions are unchanged by the Z-axis negation).
 
 ### `animator.ts` — Procedural Animations ✅
 - **Breathing**: sine wave on chest bone rotation
@@ -160,7 +161,34 @@ Scene, VRM loader, and base animator (breathing, blinking, head sway) were imple
 
 ---
 
-## Phase 5: Chat Bubble UI (TODO)
+## Phase 5: Mixamo Animation State Machine ✅
+
+Replaced procedural sine-wave bone animations with Mixamo FBX clips retargeted at runtime via a finite state machine. See `docs/avatar/ANIMATION-PLAN.md` for full design.
+
+### Architecture
+- **animation-loader.ts** — FBX loading via FBXLoader, per-file caching, retarget on VRM swap, dispose
+- **mixamo-retarget.ts** — 65-bone Mixamo→VRM name mapping, world-space quaternion rest pose removal (matching official @pixiv/three-vrm approach), hip position scaling, VRM 0.x coordinate flip
+- **state-machine.ts** — FSM with 0.5s crossfade on phase change, 0.3s on variety rotation, LoopRepeat for idle/speaking, LoopOnce+clamp for thinking/working
+- **animator.ts** — Mixer integration with procedural fallback, concurrency guard, pending phase buffer, VRM swap disposal
+- **IPC plumbing** — Main process scans `assets/animations/{phase}/` with symlink protection, renderer loads via bridge
+
+### Animation Assets (13 Mixamo FBX clips, ~9MB)
+| Phase | Clips |
+|-------|-------|
+| idle | Breathing Idle, look away gesture, weight shift |
+| thinking | Thinking, thoughtful head shake |
+| speaking | Talking ×4, Agreeing, head nod yes |
+| working | acknowledging, lengthy head nod |
+
+### Key decisions
+- Procedural breathing/head sway kept as fallback when no FBX files present
+- Morph targets (expressions, blink, lip-sync) orthogonal to skeletal animation
+- fflate dependency added for FBXLoader compressed binary support
+- Retarget uses world quaternions + correct multiply order per official three-vrm example
+
+---
+
+## Phase 6: Chat Bubble UI (TODO)
 
 - Semi-transparent rounded bubble above/beside avatar
 - Shows streamed assistant text word-by-word
@@ -171,7 +199,7 @@ Scene, VRM loader, and base animator (breathing, blinking, head sway) were imple
 
 ---
 
-## Phase 6: Avatar State Machine (TODO)
+## Phase 7: Advanced State Machine (TODO)
 
 ```
 IDLE ──(agent start)──→ THINKING
@@ -182,7 +210,7 @@ ANY ──(error)──→ CONFUSED → IDLE
 ANY ──(click)──→ toggle chat bubble
 ```
 
-Each state controls: active animations, VRM expression, lip sync on/off, chat bubble visibility.
+Future enhancements: transition warm-ups, duration awareness, error personality, mood drift, content-aware expressions. See `docs/avatar/UX-GAPS.md` for full gap analysis.
 
 ---
 
@@ -193,9 +221,10 @@ Each state controls: active animations, VRM expression, lip sync on/off, chat bu
 3. ~~**Three.js scene** — `scene.ts`, `vrm-loader.ts` → verify VRM model renders in the transparent window~~ ✅
 4. ~~**Animations** — `animator.ts`, `expressions.ts`, `lip-sync.ts` → avatar breathes, blinks, speaks~~ ✅
 5. ~~**Gateway bridge** — `gateway-client.ts`, plugin service → avatar reacts to real OpenClaw events~~ ✅
-6. **Chat bubble** — `chat-bubble.ts` → interactive text input/output
-7. **State machine** — `avatar-state.ts` → wire everything together
-8. ~~**Polish** — position persistence, tray menu, default model bundling~~ ✅
+6. ~~**Mixamo animations** — `animation-loader.ts`, `mixamo-retarget.ts`, `state-machine.ts` → Mixamo FBX clips with FSM~~ ✅
+7. **Chat bubble** — `chat-bubble.ts` → interactive text input/output
+8. **Advanced state machine** — `avatar-state.ts` → transitions, duration awareness, mood drift
+9. ~~**Polish** — position persistence, tray menu, default model bundling~~ ✅
 
 ---
 
