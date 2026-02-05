@@ -1,0 +1,139 @@
+/**
+ * Input Component
+ * Reusable input styles with states
+ */
+
+/* === Base Input === */
+.input {
+  background: var(--surface-input);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-full);
+  padding: var(--space-2) var(--space-4);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-md);
+  transition:
+    border-color var(--duration-fast),
+    box-shadow var(--duration-fast),
+    background var(--duration-fast);
+}
+
+.input::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+/* Focus */
+.input:focus {
+  outline: none;
+}
+
+.input:focus-visible {
+  background: var(--surface-focus);
+  border-color: var(--accent-blue);
+  box-shadow:
+    0 0 0 3px var(--surface-focus),
+    inset 0 0 0 1px rgba(100, 180, 255, 0.3);
+}
+
+/* Hover */
+.input:hover:not(:focus):not(:disabled) {
+  background: var(--surface-hover);
+  border-color: var(--glass-border-hover);
+}
+
+/* Disabled */
+.input:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* === Error State === */
+.input--error,
+.input.is-error {
+  border-color: var(--color-error);
+  box-shadow: 0 0 0 2px var(--color-error-soft);
+}
+
+.input--error:focus-visible,
+.input.is-error:focus-visible {
+  border-color: var(--color-error);
+  box-shadow:
+    0 0 0 3px var(--color-error-soft),
+    inset 0 0 0 1px var(--color-error);
+}
+
+/* === Success State === */
+.input--success,
+.input.is-success {
+  border-color: var(--color-success);
+  box-shadow: 0 0 0 2px var(--color-success-soft);
+}
+
+/* === Size Variants === */
+.input--sm {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--font-size-sm);
+}
+
+.input--lg {
+  padding: var(--space-3) var(--space-5);
+  font-size: var(--font-size-lg);
+}
+
+/* === Textarea variant === */
+textarea.input {
+  border-radius: var(--radius-lg);
+  resize: vertical;
+  min-height: 80px;
+  line-height: var(--line-height-normal);
+}
+
+/* === Input with icon === */
+.input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-wrapper .input {
+  width: 100%;
+}
+
+.input-wrapper--icon-start .input {
+  padding-inline-start: calc(var(--space-4) + 20px);
+}
+
+.input-wrapper--icon-end .input {
+  padding-inline-end: calc(var(--space-4) + 20px);
+}
+
+.input-icon {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+
+.input-icon--start {
+  inset-inline-start: var(--space-3);
+}
+
+.input-icon--end {
+  inset-inline-end: var(--space-3);
+}
+
+/* === Responsive === */
+@media (max-width: 480px) {
+  .input {
+    font-size: 16px; /* Prevent iOS zoom */
+  }
+}
+
+/* === Forced colors mode === */
+@media (forced-colors: active) {
+  .input {
+    border: 2px solid currentColor;
+  }
+}

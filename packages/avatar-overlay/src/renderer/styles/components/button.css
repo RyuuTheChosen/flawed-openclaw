@@ -1,0 +1,221 @@
+/**
+ * Button Component
+ * Reusable button styles with variants
+ */
+
+/* === Base Button === */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-md);
+  transition:
+    background var(--duration-fast) var(--ease-out-expo),
+    color var(--duration-fast) var(--ease-out-expo),
+    transform var(--duration-normal) var(--ease-out-back),
+    box-shadow var(--duration-fast) var(--ease-out-expo),
+    opacity var(--duration-normal);
+}
+
+.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.96);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Focus visible */
+.btn:focus {
+  outline: none;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--surface-focus);
+}
+
+/* === Icon Button Variant === */
+.btn--icon {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--accent-blue-soft);
+  color: var(--accent-blue);
+  flex-shrink: 0;
+}
+
+.btn--icon:hover:not(:disabled) {
+  background: rgba(100, 180, 255, 0.35);
+  color: var(--text-primary);
+  box-shadow: var(--glow-blue-sm);
+  transform: scale(1.05);
+}
+
+.btn--icon:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.btn--icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* === Ghost Button Variant === */
+.btn--ghost {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: var(--radius-md);
+  background: var(--surface-button);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.btn--ghost:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+  transform: scale(1.05);
+}
+
+.btn--ghost:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.btn--ghost svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* === Primary Button Variant === */
+.btn--primary {
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--accent-blue);
+  color: rgba(0, 0, 0, 0.9);
+  font-weight: var(--font-weight-medium);
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: rgba(120, 190, 255, 1);
+  box-shadow: var(--glow-blue-sm);
+}
+
+/* === Secondary Button Variant === */
+.btn--secondary {
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--surface-button);
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary);
+}
+
+.btn--secondary:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: var(--glass-border-hover);
+}
+
+/* === Size Variants === */
+.btn--sm {
+  width: 24px;
+  height: 24px;
+}
+
+.btn--sm svg {
+  width: 12px;
+  height: 12px;
+}
+
+.btn--lg {
+  width: 40px;
+  height: 40px;
+}
+
+.btn--lg svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* === State Modifiers === */
+.btn--active,
+.btn.is-active {
+  background: var(--accent-blue-soft);
+  color: var(--accent-blue);
+  box-shadow: var(--shadow-glow);
+}
+
+.btn--loading {
+  position: relative;
+  color: transparent;
+  pointer-events: none;
+}
+
+.btn--loading::after {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: btn-spin 0.6s linear infinite;
+}
+
+@keyframes btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* === Icon visibility toggle === */
+.btn .icon-on {
+  display: none;
+}
+
+.btn .icon-off {
+  display: block;
+}
+
+.btn.is-active .icon-on,
+.btn--active .icon-on {
+  display: block;
+}
+
+.btn.is-active .icon-off,
+.btn--active .icon-off {
+  display: none;
+}
+
+/* === Speaking animation === */
+.btn--speaking {
+  animation: btn-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes btn-pulse {
+  0%,
+  100% {
+    box-shadow: var(--shadow-glow);
+  }
+  50% {
+    box-shadow: var(--glow-blue-md);
+  }
+}
+
+/* === Forced colors mode === */
+@media (forced-colors: active) {
+  .btn {
+    border: 2px solid currentColor;
+  }
+}

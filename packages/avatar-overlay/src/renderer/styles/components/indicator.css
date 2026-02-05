@@ -1,0 +1,216 @@
+/**
+ * Indicator Component
+ * Loading states, typing indicators, and skeletons
+ */
+
+/* === Typing Indicator === */
+.typing-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-message-assistant);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-2);
+  animation: indicator-appear var(--duration-normal) var(--ease-out-expo);
+}
+
+@keyframes indicator-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Typing dots */
+.typing-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-blue);
+  animation: typing-bounce 1.4s infinite ease-in-out;
+}
+
+.typing-dot:nth-child(1) {
+  animation-delay: 0ms;
+}
+
+.typing-dot:nth-child(2) {
+  animation-delay: 160ms;
+}
+
+.typing-dot:nth-child(3) {
+  animation-delay: 320ms;
+}
+
+@keyframes typing-bounce {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 0.5;
+  }
+  30% {
+    transform: translateY(-6px) scale(1.1);
+    opacity: 1;
+  }
+}
+
+/* Working phase - amber pulsing */
+.typing-indicator[data-phase="working"] .typing-dot {
+  background: var(--accent-amber);
+  animation: working-pulse 1.8s infinite ease-in-out;
+}
+
+.typing-indicator[data-phase="working"] .typing-dot:nth-child(1) {
+  animation-delay: 0ms;
+}
+
+.typing-indicator[data-phase="working"] .typing-dot:nth-child(2) {
+  animation-delay: 200ms;
+}
+
+.typing-indicator[data-phase="working"] .typing-dot:nth-child(3) {
+  animation-delay: 400ms;
+}
+
+@keyframes working-pulse {
+  0%,
+  100% {
+    transform: scale(0.8);
+    opacity: 0.4;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+}
+
+/* === Skeleton Loader === */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface-elevated) 25%,
+    var(--surface-hover) 50%,
+    var(--surface-elevated) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+  border-radius: var(--radius-md);
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Message skeleton */
+.message-skeleton {
+  height: 48px;
+  margin-bottom: var(--space-2);
+}
+
+.message-skeleton:nth-child(odd) {
+  width: 70%;
+}
+
+.message-skeleton:nth-child(even) {
+  width: 55%;
+  margin-inline-start: auto;
+}
+
+/* Text skeleton */
+.skeleton--text {
+  height: 1em;
+  width: 100%;
+}
+
+.skeleton--text-short {
+  width: 60%;
+}
+
+.skeleton--text-medium {
+  width: 80%;
+}
+
+/* Circle skeleton (avatar) */
+.skeleton--circle {
+  border-radius: 50%;
+}
+
+/* === Spinner === */
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--surface-hover);
+  border-top-color: var(--accent-blue);
+  border-radius: 50%;
+  animation: spinner-rotate 0.8s linear infinite;
+}
+
+@keyframes spinner-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinner--sm {
+  width: 14px;
+  height: 14px;
+  border-width: 2px;
+}
+
+.spinner--lg {
+  width: 32px;
+  height: 32px;
+  border-width: 3px;
+}
+
+/* === Progress Bar === */
+.progress {
+  height: 4px;
+  background: var(--surface-sunken);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.progress__bar {
+  height: 100%;
+  background: var(--accent-blue);
+  border-radius: var(--radius-full);
+  transition: width var(--duration-normal) var(--ease-out-expo);
+}
+
+.progress--indeterminate .progress__bar {
+  width: 30%;
+  animation: progress-indeterminate 1.5s infinite ease-in-out;
+}
+
+@keyframes progress-indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
+
+/* === Loading overlay === */
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: var(--z-overlay);
+}
