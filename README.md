@@ -262,6 +262,18 @@ Built on [**openclaw/openclaw**](https://github.com/openclaw/openclaw). All upst
 
 ---
 
+## Fork Activity
+
+<a href="https://star-history.com/#RyuuTheChosen/flawed-openclaw&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=RyuuTheChosen/flawed-openclaw&type=Date&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=RyuuTheChosen/flawed-openclaw&type=Date" />
+    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=RyuuTheChosen/flawed-openclaw&type=Date" width="600" />
+  </picture>
+</a>
+
+---
+
 ## License
 
 MIT — same as upstream. See [LICENSE](LICENSE).
