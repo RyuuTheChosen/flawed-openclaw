@@ -71,3 +71,6 @@ USER.md
 
 # local tooling
 .serena/
+
+# Avatar overlay docs (local only)
+docs/avatar/
