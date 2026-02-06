@@ -8,6 +8,8 @@ import {
 	CAMERA_ZOOM_MAX,
 	CAMERA_PRESETS,
 	IDLE_TIMEOUT_OPTIONS,
+	OPACITY_MIN,
+	OPACITY_MAX,
 } from "../shared/config.js";
 import { IPC } from "../shared/ipc-channels.js";
 import {
@@ -131,26 +133,21 @@ export function createOverlayWindow(): BrowserWindow {
 	});
 
 	// Clean up previous IPC handlers (safe for window re-creation)
-	ipcMain.removeAllListeners(IPC.SET_IGNORE_MOUSE);
-	ipcMain.removeAllListeners(IPC.DRAG_MOVE);
-	ipcMain.removeHandler(IPC.GET_CAMERA_ZOOM);
-	ipcMain.removeAllListeners(IPC.SAVE_CAMERA_ZOOM);
-	ipcMain.removeAllListeners(IPC.SHOW_CONTEXT_MENU);
-	ipcMain.removeHandler(IPC.GET_SETTINGS);
-	ipcMain.removeHandler(IPC.GET_CHAT_HISTORY);
-	ipcMain.removeHandler(IPC.GET_IDLE_TIMEOUT);
-	ipcMain.removeAllListeners(IPC.APPEND_CHAT_MESSAGE);
-	ipcMain.removeAllListeners(IPC.CLEAR_CHAT_HISTORY);
-	ipcMain.removeAllListeners(IPC.SET_IDLE_TIMEOUT);
-	ipcMain.removeAllListeners(IPC.SET_OPACITY);
-	ipcMain.removeHandler(IPC.GET_TTS_ENABLED);
-	ipcMain.removeAllListeners(IPC.SET_TTS_ENABLED);
-	ipcMain.removeHandler(IPC.GET_TTS_ENGINE);
-	ipcMain.removeAllListeners(IPC.SET_TTS_ENGINE);
-	ipcMain.removeHandler(IPC.GET_TTS_VOICE);
-	ipcMain.removeAllListeners(IPC.SET_TTS_VOICE);
-	ipcMain.removeAllListeners(IPC.START_CURSOR_TRACKING);
-	ipcMain.removeAllListeners(IPC.STOP_CURSOR_TRACKING);
+	const listenChannels = [
+		IPC.SET_IGNORE_MOUSE, IPC.DRAG_MOVE, IPC.SAVE_CAMERA_ZOOM,
+		IPC.SHOW_CONTEXT_MENU, IPC.APPEND_CHAT_MESSAGE, IPC.CLEAR_CHAT_HISTORY,
+		IPC.SET_IDLE_TIMEOUT, IPC.SET_OPACITY, IPC.SET_TTS_ENABLED,
+		IPC.SET_TTS_ENGINE, IPC.SET_TTS_VOICE, IPC.START_CURSOR_TRACKING,
+		IPC.STOP_CURSOR_TRACKING,
+	];
+	for (const ch of listenChannels) ipcMain.removeAllListeners(ch);
+
+	const handleChannels = [
+		IPC.GET_CAMERA_ZOOM, IPC.GET_SETTINGS, IPC.GET_CHAT_HISTORY,
+		IPC.GET_IDLE_TIMEOUT, IPC.GET_TTS_ENABLED, IPC.GET_TTS_ENGINE,
+		IPC.GET_TTS_VOICE,
+	];
+	for (const ch of handleChannels) ipcMain.removeHandler(ch);
 
 	// IPC: click-through toggle
 	ipcMain.on(IPC.SET_IGNORE_MOUSE, (_event, ignore: unknown) => {
@@ -219,7 +216,7 @@ export function createOverlayWindow(): BrowserWindow {
 	// IPC: opacity
 	ipcMain.on(IPC.SET_OPACITY, (_event, opacity: unknown) => {
 		if (typeof opacity !== "number" || !Number.isFinite(opacity)) return;
-		const clamped = Math.max(0.3, Math.min(1.0, opacity));
+		const clamped = Math.max(OPACITY_MIN, Math.min(OPACITY_MAX, opacity));
 		saveOpacity(clamped);
 		win.setOpacity(clamped);
 		win.webContents.send(IPC.OPACITY_CHANGED, clamped);
@@ -227,28 +224,22 @@ export function createOverlayWindow(): BrowserWindow {
 
 	// IPC: TTS enabled
 	ipcMain.handle(IPC.GET_TTS_ENABLED, () => {
-		const enabled = getTtsEnabled();
-		console.log("[TTS] getTtsEnabled:", enabled);
-		return enabled;
+		return getTtsEnabled();
 	});
 
 	ipcMain.on(IPC.SET_TTS_ENABLED, (_event, enabled: unknown) => {
 		if (typeof enabled !== "boolean") return;
-		console.log("[TTS] setTtsEnabled:", enabled);
 		saveTtsEnabled(enabled);
 		win.webContents.send(IPC.TTS_ENABLED_CHANGED, enabled);
 	});
 
 	// IPC: TTS engine
 	ipcMain.handle(IPC.GET_TTS_ENGINE, () => {
-		const engine = getTtsEngine();
-		console.log("[TTS] getTtsEngine:", engine);
-		return engine;
+		return getTtsEngine();
 	});
 
 	ipcMain.on(IPC.SET_TTS_ENGINE, (_event, engine: unknown) => {
 		if (engine !== "web-speech" && engine !== "kokoro") return;
-		console.log("[TTS] setTtsEngine:", engine);
 		saveTtsEngine(engine);
 		win.webContents.send(IPC.TTS_ENGINE_CHANGED, engine);
 	});
@@ -270,9 +261,10 @@ export function createOverlayWindow(): BrowserWindow {
 	}
 
 	function setOpacity(opacity: number): void {
-		saveOpacity(opacity);
-		win.setOpacity(opacity);
-		win.webContents.send(IPC.OPACITY_CHANGED, opacity);
+		const clamped = Math.max(OPACITY_MIN, Math.min(OPACITY_MAX, opacity));
+		saveOpacity(clamped);
+		win.setOpacity(clamped);
+		win.webContents.send(IPC.OPACITY_CHANGED, clamped);
 	}
 
 	function snapTo(corner: "bottomRight" | "bottomLeft" | "topRight" | "topLeft"): void {

@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { createOverlayWindow } from "./window.js";
 import { IPC } from "../shared/ipc-channels.js";
 import {
+	WINDOW_HEIGHT,
 	CHAT_WINDOW_WIDTH,
 	CHAT_WINDOW_HEIGHT,
 	CHAT_WINDOW_GAP,
@@ -49,8 +50,7 @@ function computeChatPosition(
 	}
 
 	// Fall back to below avatar
-	const avatarBounds = { height: 400 }; // WINDOW_HEIGHT from config
-	const belowY = avatarY + avatarBounds.height + CHAT_WINDOW_GAP;
+	const belowY = avatarY + WINDOW_HEIGHT + CHAT_WINDOW_GAP;
 	return { x: chatX, y: belowY };
 }
 
@@ -91,7 +91,6 @@ export function createWindowManager(): WindowManager {
 	chatWin.on("closed", () => {
 		chatVisible = false;
 		chatWin = createChatWindow();
-		registerChatWindowHandlers();
 	});
 
 	function repositionChat(): void {
@@ -147,7 +146,9 @@ export function createWindowManager(): WindowManager {
 	}
 
 	function sendToAvatar(channel: string, ...args: unknown[]): void {
-		avatarWin.webContents.send(channel, ...args);
+		if (!avatarWin.isDestroyed()) {
+			avatarWin.webContents.send(channel, ...args);
+		}
 	}
 
 	function sendToChat(channel: string, ...args: unknown[]): void {
@@ -165,12 +166,6 @@ export function createWindowManager(): WindowManager {
 	avatarWin.on("moved", () => {
 		if (chatVisible) repositionChat();
 	});
-
-	// IPC handlers for chat window
-	function registerChatWindowHandlers(): void {
-		// These use .on() so multiple registrations are fine since we guard
-		// against the chat window being destroyed
-	}
 
 	// Toggle chat from avatar renderer
 	ipcMain.on(IPC.TOGGLE_CHAT, () => {
@@ -192,8 +187,6 @@ export function createWindowManager(): WindowManager {
 	ipcMain.on(IPC.CHAT_CONTENT_SHOWN, () => {
 		if (!chatVisible) showChat();
 	});
-
-	registerChatWindowHandlers();
 
 	return {
 		get avatarWin() { return avatarWin; },

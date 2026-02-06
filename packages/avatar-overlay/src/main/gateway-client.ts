@@ -44,6 +44,7 @@ export function createGatewayClient(
 	let ws: WebSocket | null = null;
 	let destroyed = false;
 	let backoffMs = GATEWAY_RECONNECT_BASE_MS;
+	let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 	let connectNonce: string | null = null;
 	let connectSent = false;
 	let connectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -56,7 +57,6 @@ export function createGatewayClient(
 
 	function processAgentEvent(evt: AgentEventPayload): void {
 		const { stream, data, sessionKey } = evt;
-		console.log("avatar-overlay: agent event received:", JSON.stringify(evt));
 
 		// Track session changes - agent events contain the actual sessionKey
 		if (sessionKey && sessionKey !== currentSessionKey) {
@@ -162,8 +162,8 @@ export function createGatewayClient(
 					}
 				}
 			}
-		} catch {
-			// Ignore parse errors
+		} catch (err) {
+			console.warn("avatar-overlay: failed to parse gateway message:", err);
 		}
 	}
 
@@ -270,7 +270,7 @@ export function createGatewayClient(
 		if (destroyed) return;
 		const delay = backoffMs;
 		backoffMs = Math.min(backoffMs * 2, GATEWAY_RECONNECT_MAX_MS);
-		setTimeout(() => connect(), delay);
+		reconnectTimer = setTimeout(() => connect(), delay);
 	}
 
 	// Start the initial connection
@@ -279,6 +279,7 @@ export function createGatewayClient(
 	return {
 		destroy() {
 			destroyed = true;
+			if (reconnectTimer) clearTimeout(reconnectTimer);
 			if (connectTimer) clearTimeout(connectTimer);
 			if (ws) {
 				ws.removeAllListeners();
@@ -290,11 +291,7 @@ export function createGatewayClient(
 		sendChat(text: string, sessionKey: string | null) {
 			// Use provided sessionKey, or fall back to auto-detected session, or default
 			const effectiveSessionKey = sessionKey ?? currentSessionKey ?? "agent:main:main";
-			console.log("avatar-overlay: sendChat called, ws state:", ws?.readyState, "sessionKey:", effectiveSessionKey);
-			if (!ws || ws.readyState !== WebSocket.OPEN) {
-				console.log("avatar-overlay: WebSocket not open, message dropped");
-				return;
-			}
+			if (!ws || ws.readyState !== WebSocket.OPEN) return;
 			const frame = {
 				type: "req",
 				id: randomUUID(),
@@ -305,7 +302,6 @@ export function createGatewayClient(
 					idempotencyKey: randomUUID(),
 				},
 			};
-			console.log("avatar-overlay: sending frame:", JSON.stringify(frame));
 			ws.send(JSON.stringify(frame));
 		},
 

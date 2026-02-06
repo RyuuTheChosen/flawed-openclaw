@@ -90,7 +90,6 @@ export function createTTSController(
 	let speakingCallbacks: Array<(speaking: boolean) => void> = [];
 	let disposed = false;
 	let wasSpeaking = false;
-	let lastFedTextLength = 0;
 
 	function notifySpeakingChange(speaking: boolean): void {
 		if (speaking !== wasSpeaking) {
@@ -186,11 +185,6 @@ export function createTTSController(
 
 			const service = initService();
 
-			// Track text length for delta calculation
-			if (fullText.length > lastFedTextLength) {
-				lastFedTextLength = fullText.length;
-			}
-
 			// Don't feed text to lip sync here - let audio boundary events drive it
 			// This ensures lip sync follows actual audio playback, not text arrival
 
@@ -204,7 +198,6 @@ export function createTTSController(
 				ttsService.resetSpokenIndex();
 			}
 			lipSync.clearQueue();
-			lastFedTextLength = 0;
 			notifySpeakingChange(false);
 		},
 
@@ -214,7 +207,6 @@ export function createTTSController(
 				ttsService.resetSpokenIndex();
 			}
 			lipSync.clearQueue();
-			lastFedTextLength = 0;
 		},
 
 		isSpeaking(): boolean {

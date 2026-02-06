@@ -146,8 +146,23 @@ async function boot(): Promise<void> {
 	});
 	bridge.startCursorTracking();
 
+	// Validate required DOM elements
+	const dragHandle = document.getElementById("drag-handle");
+	const settingsBtn = document.getElementById("settings-btn");
+	const chatToggleBtn = document.getElementById("chat-toggle-btn");
+	const ttsToggleBtn = document.getElementById("tts-toggle-btn");
+
+	if (!dragHandle || !settingsBtn || !chatToggleBtn || !ttsToggleBtn) {
+		console.error("Missing required DOM elements:", {
+			dragHandle: !!dragHandle,
+			settingsBtn: !!settingsBtn,
+			chatToggleBtn: !!chatToggleBtn,
+			ttsToggleBtn: !!ttsToggleBtn,
+		});
+		return;
+	}
+
 	// Drag support via drag handle
-	const dragHandle = document.getElementById("drag-handle")!;
 	let isDragging = false;
 	let lastX = 0;
 	let lastY = 0;
@@ -186,13 +201,11 @@ async function boot(): Promise<void> {
 	});
 
 	// Settings button → context menu
-	const settingsBtn = document.getElementById("settings-btn")!;
 	settingsBtn.addEventListener("click", () => {
 		bridge.showContextMenu();
 	});
 
 	// Chat toggle button → toggle chat window via main process
-	const chatToggleBtn = document.getElementById("chat-toggle-btn")!;
 	chatToggleBtn.addEventListener("click", () => {
 		bridge.toggleChat();
 	});
@@ -202,10 +215,7 @@ async function boot(): Promise<void> {
 		chatToggleBtn.classList.toggle("active", visible);
 	});
 
-	// TTS toggle button
-	const ttsToggleBtn = document.getElementById("tts-toggle-btn")!;
-
-	// Set initial button state
+	// Set initial TTS button state
 	ttsToggleBtn.classList.toggle("active", ttsEnabled);
 
 	ttsToggleBtn.addEventListener("click", () => {
