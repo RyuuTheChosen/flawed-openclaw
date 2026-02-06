@@ -48,7 +48,7 @@ A transparent Electron window that renders a VRM avatar using Three.js. The avat
 Add the avatar to any existing OpenClaw installation:
 
 ```bash
-openclaw plugins install https://github.com/RyuuTheChosen/flawed-openclaw/releases/download/avatar-overlay-v0.1.0/openclaw-avatar-overlay-0.1.0.tgz
+openclaw plugins install https://github.com/RyuuTheChosen/flawed-openclaw/releases/download/avatar-overlay-v0.1.1/openclaw-avatar-overlay-0.1.1.tgz
 openclaw restart
 # → avatar window appears automatically
 ```
