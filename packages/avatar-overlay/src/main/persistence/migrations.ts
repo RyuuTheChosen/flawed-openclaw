@@ -13,6 +13,7 @@ import {
 	type Settings,
 } from "./types.js";
 import { loadSettings, getSettingsStore } from "./settings-store.js";
+import { computeDisplayHash } from "../display-utils.js";
 
 interface LegacyPosition {
 	x: number;
@@ -98,9 +99,10 @@ export function migrateLegacyFiles(): Settings | null {
 	};
 
 	// Only migrate position if not already set in new format
-	if (legacyPosition && !current.position) {
-		migrated.position = legacyPosition;
-		console.log(`[migrations] Migrated position: (${legacyPosition.x}, ${legacyPosition.y})`);
+	if (legacyPosition && (!current.position || Object.keys(current.position).length === 0)) {
+		const hash = computeDisplayHash();
+		migrated.position = { [hash]: legacyPosition };
+		console.log(`[migrations] Migrated position: (${legacyPosition.x}, ${legacyPosition.y}) for display ${hash}`);
 	}
 
 	// Only migrate camera if not already set in new format
@@ -122,4 +124,46 @@ export function migrateLegacyFiles(): Settings | null {
 
 	console.log("[migrations] Migration complete");
 	return migrated;
+}
+
+/**
+ * Migrates settings from schema v1 to v2.
+ * Converts position from `{x,y}` flat object to `Record<displayHash, {x,y}>`.
+ * Reads raw JSON to avoid schema validation rejecting the old format.
+ */
+export function migrateV1ToV2(): void {
+	const filePath = path.join(getOpenclawDir(), "avatar-overlay-settings.json");
+	let raw: Record<string, unknown>;
+	try {
+		raw = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+	} catch {
+		return; // No settings file yet
+	}
+
+	// Already at v2 or newer
+	if (typeof raw.schemaVersion === "number" && raw.schemaVersion >= 2) return;
+
+	// Check if position is old v1 format ({x, y} directly)
+	const pos = raw.position;
+	if (
+		pos &&
+		typeof pos === "object" &&
+		!Array.isArray(pos) &&
+		"x" in (pos as Record<string, unknown>) &&
+		"y" in (pos as Record<string, unknown>)
+	) {
+		const oldPos = pos as { x: number; y: number };
+		const hash = computeDisplayHash();
+		console.log(`[migrations] Converting v1 position to v2 keyed by display hash ${hash}`);
+		raw.position = { [hash]: { x: oldPos.x, y: oldPos.y } };
+	}
+
+	raw.schemaVersion = SETTINGS_SCHEMA_VERSION;
+
+	try {
+		fs.writeFileSync(filePath, JSON.stringify(raw, null, "\t"));
+		console.log("[migrations] Schema upgraded to v2");
+	} catch (err) {
+		console.warn("[migrations] Failed to write v2 migration:", err);
+	}
 }

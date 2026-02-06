@@ -46,13 +46,15 @@
   z-index: var(--z-dropdown);
 }
 
-/* Show on hover */
+/* Show on hover (pixel-sampled opaque hit) */
+body.avatar-hovered .controls,
 body:hover .controls,
 .controls:focus-within {
   opacity: 1;
 }
 
 /* Legacy support */
+body.avatar-hovered #controls,
 body:hover #controls,
 #controls:focus-within {
   opacity: 1;

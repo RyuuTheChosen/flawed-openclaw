@@ -9,7 +9,8 @@ import {
 	type SpringBoneController,
 } from "./avatar/spring-bones.js";
 import { createIBLEnhancer, type IBLEnhancer } from "./avatar/ibl-enhancer.js";
-import { CAMERA_ZOOM_STEP, IBL_ENABLED } from "../shared/config.js";
+import { CAMERA_ZOOM_STEP, IBL_ENABLED, PIXEL_SAMPLE_THROTTLE_MS } from "../shared/config.js";
+import { isTransparentAtPoint } from "./avatar/pixel-transparency.js";
 
 const bridge = window.avatarBridge;
 
@@ -138,14 +139,43 @@ async function boot(): Promise<void> {
 	let currentZoom = await bridge.getCameraZoom();
 	currentZoom = setCameraZoom(currentZoom);
 
-	// Click-through: ignore mouse on transparent areas
-	document.addEventListener("mouseenter", () => {
-		bridge.setIgnoreMouseEvents(false);
-		if (animator) animator.setHovering(true);
+	// Click-through via pixel sampling: ignore mouse when cursor is over transparent pixels
+	const gl = renderer.getContext() as WebGLRenderingContext;
+	let isHoveredOpaque = false;
+	let lastSampleTime = 0;
+
+	document.addEventListener("mousemove", (e) => {
+		const now = performance.now();
+		if (now - lastSampleTime < PIXEL_SAMPLE_THROTTLE_MS) return;
+		lastSampleTime = now;
+
+		const transparent = isTransparentAtPoint({
+			gl,
+			canvasEl: canvas,
+			clientX: e.clientX,
+			clientY: e.clientY,
+		});
+
+		if (transparent && isHoveredOpaque) {
+			isHoveredOpaque = false;
+			bridge.setIgnoreMouseEvents(true);
+			if (animator) animator.setHovering(false);
+			document.body.classList.remove("avatar-hovered");
+		} else if (!transparent && !isHoveredOpaque) {
+			isHoveredOpaque = true;
+			bridge.setIgnoreMouseEvents(false);
+			if (animator) animator.setHovering(true);
+			document.body.classList.add("avatar-hovered");
+		}
 	});
+
 	document.addEventListener("mouseleave", () => {
-		bridge.setIgnoreMouseEvents(true);
-		if (animator) animator.setHovering(false);
+		if (isHoveredOpaque) {
+			isHoveredOpaque = false;
+			bridge.setIgnoreMouseEvents(true);
+			if (animator) animator.setHovering(false);
+			document.body.classList.remove("avatar-hovered");
+		}
 	});
 
 	// Global cursor tracking for eye/head gaze (works outside window)
@@ -172,28 +202,13 @@ async function boot(): Promise<void> {
 		return;
 	}
 
-	// Drag support via drag handle
-	let isDragging = false;
-	let lastX = 0;
-	let lastY = 0;
-
-	dragHandle.addEventListener("mousedown", (e) => {
-		isDragging = true;
-		lastX = e.screenX;
-		lastY = e.screenY;
-	});
-
-	window.addEventListener("mousemove", (e) => {
-		if (!isDragging) return;
-		const dx = e.screenX - lastX;
-		const dy = e.screenY - lastY;
-		lastX = e.screenX;
-		lastY = e.screenY;
-		bridge.dragMove(dx, dy);
+	// Native drag via main process cursor tracking
+	dragHandle.addEventListener("mousedown", () => {
+		bridge.startDrag();
 	});
 
 	window.addEventListener("mouseup", () => {
-		isDragging = false;
+		bridge.stopDrag();
 	});
 
 	// Scroll-wheel zoom

@@ -10,6 +10,7 @@ import {
 	CHAT_WINDOW_GAP,
 } from "../shared/config.js";
 import type { AgentState } from "../shared/types.js";
+import { clampBoundsToWorkArea } from "./display-utils.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -46,12 +47,12 @@ function computeChatPosition(
 	// Try above avatar first
 	const aboveY = avatarY - CHAT_WINDOW_HEIGHT - CHAT_WINDOW_GAP;
 	if (aboveY >= workArea.y) {
-		return { x: chatX, y: aboveY };
+		return clampBoundsToWorkArea(chatX, aboveY, CHAT_WINDOW_WIDTH, CHAT_WINDOW_HEIGHT);
 	}
 
 	// Fall back to below avatar
 	const belowY = avatarY + WINDOW_HEIGHT + CHAT_WINDOW_GAP;
-	return { x: chatX, y: belowY };
+	return clampBoundsToWorkArea(chatX, belowY, CHAT_WINDOW_WIDTH, CHAT_WINDOW_HEIGHT);
 }
 
 function createChatWindow(): BrowserWindow {

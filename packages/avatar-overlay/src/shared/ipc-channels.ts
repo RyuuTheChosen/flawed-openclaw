@@ -1,6 +1,6 @@
 export const IPC = {
 	// Avatar window
-	DRAG_MOVE: "avatar:drag-move",
+	START_DRAG: "avatar:start-drag",
 	SET_IGNORE_MOUSE: "avatar:set-ignore-mouse",
 	GET_VRM_PATH: "avatar:get-vrm-path",
 	VRM_MODEL_CHANGED: "avatar:vrm-model-changed",
@@ -58,4 +58,7 @@ export const IPC = {
 	CURSOR_POSITION: "avatar:cursor-position",
 	START_CURSOR_TRACKING: "avatar:start-cursor-tracking",
 	STOP_CURSOR_TRACKING: "avatar:stop-cursor-tracking",
+
+	// Snap position
+	SNAP_TO: "avatar:snap-to",
 } as const;

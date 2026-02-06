@@ -14,6 +14,7 @@ export function createScene(canvas: HTMLCanvasElement): AvatarScene {
 		canvas,
 		alpha: true,
 		antialias: true,
+		preserveDrawingBuffer: true,
 	});
 	renderer.setSize(window.innerWidth, window.innerHeight);
 	renderer.setPixelRatio(window.devicePixelRatio);

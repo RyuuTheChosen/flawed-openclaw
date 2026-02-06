@@ -1,7 +1,8 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 const IPC = {
-	DRAG_MOVE: "avatar:drag-move",
+	START_DRAG: "avatar:start-drag",
+	STOP_DRAG: "avatar:stop-drag",
 	SET_IGNORE_MOUSE: "avatar:set-ignore-mouse",
 	GET_VRM_PATH: "avatar:get-vrm-path",
 	VRM_MODEL_CHANGED: "avatar:vrm-model-changed",
@@ -52,8 +53,12 @@ contextBridge.exposeInMainWorld("avatarBridge", {
 		ipcRenderer.send(IPC.SET_IGNORE_MOUSE, ignore);
 	},
 
-	dragMove(deltaX, deltaY) {
-		ipcRenderer.send(IPC.DRAG_MOVE, deltaX, deltaY);
+	startDrag() {
+		ipcRenderer.send(IPC.START_DRAG);
+	},
+
+	stopDrag() {
+		ipcRenderer.send(IPC.STOP_DRAG);
 	},
 
 	onVrmModelChanged(callback) {

@@ -13,17 +13,20 @@ import {
 	TTS_VOICE_DEFAULT,
 } from "../../shared/config.js";
 
-export const SETTINGS_SCHEMA_VERSION = 1;
+export const SETTINGS_SCHEMA_VERSION = 2;
 export const CHAT_SCHEMA_VERSION = 1;
 
 // === Settings Schema ===
 export const SettingsSchema = z.object({
 	schemaVersion: z.number().default(SETTINGS_SCHEMA_VERSION),
 	position: z
-		.object({
-			x: z.number().finite(),
-			y: z.number().finite(),
-		})
+		.record(
+			z.string(),
+			z.object({
+				x: z.number().finite(),
+				y: z.number().finite(),
+			}),
+		)
 		.optional(),
 	camera: z
 		.object({
@@ -67,7 +70,7 @@ export type LoadResult<T> =
 export function createDefaultSettings(): Settings {
 	return {
 		schemaVersion: SETTINGS_SCHEMA_VERSION,
-		position: undefined,
+		position: {},
 		camera: { zoom: CAMERA_ZOOM_DEFAULT },
 		opacity: OPACITY_DEFAULT,
 		idleTimeoutMs: IDLE_TIMEOUT_DEFAULT,

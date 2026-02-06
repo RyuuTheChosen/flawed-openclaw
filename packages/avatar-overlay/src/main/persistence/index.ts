@@ -57,4 +57,4 @@ export {
 } from "./chat-store.js";
 
 // Migrations
-export { migrateLegacyFiles } from "./migrations.js";
+export { migrateLegacyFiles, migrateV1ToV2 } from "./migrations.js";

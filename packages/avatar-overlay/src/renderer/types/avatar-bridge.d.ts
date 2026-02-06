@@ -21,7 +21,8 @@ interface AvatarSettings {
 
 interface AvatarBridge {
 	setIgnoreMouseEvents(ignore: boolean): void;
-	dragMove(deltaX: number, deltaY: number): void;
+	startDrag(): void;
+	stopDrag(): void;
 	onVrmModelChanged(callback: (path: string) => void): void;
 	getVrmPath(): Promise<string>;
 	showContextMenu(): void;

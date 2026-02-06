@@ -18,6 +18,7 @@ import {
 	createDefaultSettings,
 	type Settings,
 } from "./types.js";
+import { computeDisplayHash } from "../display-utils.js";
 
 let store: FileStore<Settings> | null = null;
 
@@ -46,11 +47,11 @@ export function saveSettings(settings: Partial<Settings>): void {
 
 export function savePosition(x: number, y: number): void {
 	if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+	const hash = computeDisplayHash();
 	const current = getStore().getCache() ?? loadSettings();
-	const updated: Settings = {
-		...current,
-		position: { x: Math.round(x), y: Math.round(y) },
-	};
+	const positions = { ...current.position };
+	positions[hash] = { x: Math.round(x), y: Math.round(y) };
+	const updated: Settings = { ...current, position: positions };
 	getStore().save(updated);
 }
 
@@ -88,7 +89,9 @@ export function saveIdleTimeout(ms: number): void {
 
 export function getPosition(): { x: number; y: number } | null {
 	const settings = getStore().getCache() ?? loadSettings();
-	return settings.position ?? null;
+	if (!settings.position) return null;
+	const hash = computeDisplayHash();
+	return settings.position[hash] ?? null;
 }
 
 export function getZoom(): number {

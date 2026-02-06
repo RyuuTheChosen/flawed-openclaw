@@ -109,6 +109,11 @@ export const WLIPSYNC_SILENCE_IDLE_MS = 160;
 export const IBL_INTENSITY = 0.3;
 export const IBL_ENABLED = true;
 
+// === Pixel Sampling (Fade-on-Hover) ===
+export const PIXEL_SAMPLE_RADIUS = 25;
+export const PIXEL_ALPHA_THRESHOLD = 10;
+export const PIXEL_SAMPLE_THROTTLE_MS = 33;
+
 // === TTS Settings ===
 export const TTS_ENABLED_DEFAULT = false;
 export const TTS_RATE_DEFAULT = 1.0;

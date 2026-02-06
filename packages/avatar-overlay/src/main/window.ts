@@ -31,18 +31,21 @@ import {
 	getTtsVoice,
 	cleanupSettings,
 	migrateLegacyFiles,
+	migrateV1ToV2,
 	getChatHistory,
 	appendMessage,
 	clearChatHistory,
 	cleanupChat,
 	type ChatMessage,
 } from "./persistence/index.js";
+import { clampBoundsToWorkArea } from "./display-utils.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Run migration on module load
+// Run migrations on module load
 migrateLegacyFiles();
+migrateV1ToV2();
 
 function getDefaultPosition(): { x: number; y: number } {
 	const display = screen.getPrimaryDisplay();
@@ -88,7 +91,8 @@ export async function showVrmPicker(win: BrowserWindow): Promise<void> {
 export function createOverlayWindow(): BrowserWindow {
 	// Load persisted settings
 	loadSettings();
-	const pos = getPosition() ?? getDefaultPosition();
+	const rawPos = getPosition() ?? getDefaultPosition();
+	const pos = clampBoundsToWorkArea(rawPos.x, rawPos.y, WINDOW_WIDTH, WINDOW_HEIGHT);
 
 	const win = new BrowserWindow({
 		width: WINDOW_WIDTH,
@@ -134,11 +138,12 @@ export function createOverlayWindow(): BrowserWindow {
 
 	// Clean up previous IPC handlers (safe for window re-creation)
 	const listenChannels = [
-		IPC.SET_IGNORE_MOUSE, IPC.DRAG_MOVE, IPC.SAVE_CAMERA_ZOOM,
+		IPC.SET_IGNORE_MOUSE, IPC.START_DRAG, "avatar:stop-drag",
+		IPC.SAVE_CAMERA_ZOOM,
 		IPC.SHOW_CONTEXT_MENU, IPC.APPEND_CHAT_MESSAGE, IPC.CLEAR_CHAT_HISTORY,
 		IPC.SET_IDLE_TIMEOUT, IPC.SET_OPACITY, IPC.SET_TTS_ENABLED,
 		IPC.SET_TTS_ENGINE, IPC.SET_TTS_VOICE, IPC.START_CURSOR_TRACKING,
-		IPC.STOP_CURSOR_TRACKING,
+		IPC.STOP_CURSOR_TRACKING, IPC.SNAP_TO,
 	];
 	for (const ch of listenChannels) ipcMain.removeAllListeners(ch);
 
@@ -155,12 +160,30 @@ export function createOverlayWindow(): BrowserWindow {
 		win.setIgnoreMouseEvents(ignore, { forward: true });
 	});
 
-	// IPC: window drag
-	ipcMain.on(IPC.DRAG_MOVE, (_event, deltaX: unknown, deltaY: unknown) => {
-		if (typeof deltaX !== "number" || typeof deltaY !== "number") return;
-		if (!Number.isFinite(deltaX) || !Number.isFinite(deltaY)) return;
-		const [x, y] = win.getPosition();
-		win.setPosition(x + deltaX, y + deltaY);
+	// IPC: native window drag — main process polls cursor until mouse released
+	let dragInterval: ReturnType<typeof setInterval> | null = null;
+
+	ipcMain.on(IPC.START_DRAG, () => {
+		if (dragInterval) return;
+		const cursor0 = screen.getCursorScreenPoint();
+		const [wx0, wy0] = win.getPosition();
+
+		dragInterval = setInterval(() => {
+			if (win.isDestroyed()) {
+				clearInterval(dragInterval!);
+				dragInterval = null;
+				return;
+			}
+			const cursor = screen.getCursorScreenPoint();
+			win.setPosition(wx0 + cursor.x - cursor0.x, wy0 + cursor.y - cursor0.y);
+		}, 16);
+	});
+
+	ipcMain.on("avatar:stop-drag", () => {
+		if (dragInterval) {
+			clearInterval(dragInterval);
+			dragInterval = null;
+		}
 	});
 
 	// IPC: camera zoom persistence
@@ -321,6 +344,32 @@ export function createOverlayWindow(): BrowserWindow {
 			clearInterval(cursorTrackingInterval);
 			cursorTrackingInterval = null;
 		}
+	});
+
+	// Re-clamp window when displays change
+	function reclamp(): void {
+		if (win.isDestroyed()) return;
+		const [x, y] = win.getPosition();
+		const [w, h] = win.getSize();
+		const clamped = clampBoundsToWorkArea(x, y, w, h);
+		if (clamped.x !== x || clamped.y !== y) {
+			win.setPosition(clamped.x, clamped.y);
+			savePosition(clamped.x, clamped.y);
+		}
+	}
+
+	screen.on("display-added", reclamp);
+	screen.on("display-removed", reclamp);
+
+	win.on("close", () => {
+		screen.removeListener("display-added", reclamp);
+		screen.removeListener("display-removed", reclamp);
+	});
+
+	// IPC: snap to corner
+	ipcMain.on(IPC.SNAP_TO, (_event, corner: unknown) => {
+		if (corner !== "bottomRight" && corner !== "bottomLeft" && corner !== "topRight" && corner !== "topLeft") return;
+		snapTo(corner);
 	});
 
 	// IPC: show context menu from renderer settings button
