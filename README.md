@@ -119,7 +119,7 @@ cursor lingers   →  curious    →  surprised 0.5, gaze 1.15×
 ### Plugin Install (existing OpenClaw users)
 
 ```bash
-openclaw plugins install https://github.com/RyuuTheChosen/flawed-openclaw/releases/download/avatar-overlay-v0.1.1/openclaw-avatar-overlay-0.1.1.tgz
+openclaw plugins install https://github.com/RyuuTheChosen/flawed-openclaw/releases/download/avatar-overlay-v0.2.0/openclaw-avatar-overlay-0.2.0.tgz
 openclaw restart
 ```
 
