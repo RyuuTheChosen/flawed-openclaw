@@ -11,10 +11,10 @@ export const CHAT_HISTORY_FILE = "avatar-overlay-chat.json";
 
 // === Camera Settings ===
 export const CAMERA_ZOOM_MIN = 0.5;
-export const CAMERA_ZOOM_MAX = 3.5;
-export const CAMERA_ZOOM_DEFAULT = 0.8;
-export const CAMERA_ZOOM_STEP = 0.15;
-export const CAMERA_PRESETS = { head: 0.6, upperBody: 1.2, fullBody: 3.0 } as const;
+export const CAMERA_ZOOM_MAX = 6.0;
+export const CAMERA_ZOOM_DEFAULT = 3.0;
+export const CAMERA_ZOOM_STEP = 0.2;
+export const CAMERA_PRESETS = { head: 0.6, upperBody: 1.5, fullBody: 4.0 } as const;
 
 // === Opacity Settings ===
 export const OPACITY_MIN = 0.3;

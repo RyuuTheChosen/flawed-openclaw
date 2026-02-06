@@ -21,7 +21,7 @@ export function createScene(canvas: HTMLCanvasElement): AvatarScene {
 	renderer.setClearColor(0x000000, 0);
 
 	const camera = new THREE.PerspectiveCamera(
-		30,
+		40,
 		window.innerWidth / window.innerHeight,
 		0.1,
 		20.0,
@@ -56,7 +56,8 @@ export function createScene(canvas: HTMLCanvasElement): AvatarScene {
 		if (!Number.isFinite(zoom)) zoom = CAMERA_ZOOM_DEFAULT;
 		const clamped = Math.max(CAMERA_ZOOM_MIN, Math.min(CAMERA_ZOOM_MAX, zoom));
 		const t = (clamped - CAMERA_ZOOM_MIN) / (CAMERA_ZOOM_MAX - CAMERA_ZOOM_MIN);
-		const lookAtY = 1.55 + (0.85 - 1.55) * t;
+		// Close-up (t=0): look at face (1.55), far (t=1): look at waist (0.7)
+		const lookAtY = 1.55 + (0.7 - 1.55) * t;
 		camera.position.set(0, lookAtY, clamped);
 		camera.lookAt(0, lookAtY, 0);
 		return clamped;

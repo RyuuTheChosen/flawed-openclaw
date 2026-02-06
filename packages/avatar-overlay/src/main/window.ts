@@ -43,9 +43,10 @@ import { clampBoundsToWorkArea } from "./display-utils.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Run migrations on module load
-migrateLegacyFiles();
-migrateV1ToV2();
+// Migrations are deferred to createOverlayWindow() because
+// computeDisplayHash() requires the Electron 'screen' module,
+// which can't be used before app 'ready'.
+let migrationsDone = false;
 
 function getDefaultPosition(): { x: number; y: number } {
 	const display = screen.getPrimaryDisplay();
@@ -89,6 +90,13 @@ export async function showVrmPicker(win: BrowserWindow): Promise<void> {
 }
 
 export function createOverlayWindow(): BrowserWindow {
+	// Run migrations once (deferred here because screen requires app ready)
+	if (!migrationsDone) {
+		migrationsDone = true;
+		migrateLegacyFiles();
+		migrateV1ToV2();
+	}
+
 	// Load persisted settings
 	loadSettings();
 	const rawPos = getPosition() ?? getDefaultPosition();

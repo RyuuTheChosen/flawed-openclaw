@@ -141,6 +141,7 @@ async function boot(): Promise<void> {
 
 	// Click-through via pixel sampling: ignore mouse when cursor is over transparent pixels
 	const gl = renderer.getContext() as WebGLRenderingContext;
+	const controlsEl = document.getElementById("controls");
 	let isHoveredOpaque = false;
 	let lastSampleTime = 0;
 
@@ -149,12 +150,17 @@ async function boot(): Promise<void> {
 		if (now - lastSampleTime < PIXEL_SAMPLE_THROTTLE_MS) return;
 		lastSampleTime = now;
 
-		const transparent = isTransparentAtPoint({
-			gl,
-			canvasEl: canvas,
-			clientX: e.clientX,
-			clientY: e.clientY,
-		});
+		// Never enable click-through when cursor is over a UI control
+		const overControls = controlsEl?.contains(e.target as Node) ?? false;
+
+		const transparent = overControls
+			? false
+			: isTransparentAtPoint({
+					gl,
+					canvasEl: canvas,
+					clientX: e.clientX,
+					clientY: e.clientY,
+				});
 
 		if (transparent && isHoveredOpaque) {
 			isHoveredOpaque = false;

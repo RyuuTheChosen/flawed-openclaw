@@ -4,9 +4,7 @@
  * No awareness of lip-sync.ts or tts-controller.ts.
  */
 
-// @ts-expect-error wlipsync types resolved at runtime after npm install
 import type { Profile } from "wlipsync";
-// @ts-expect-error wlipsync types resolved at runtime after npm install
 import { createWLipSyncNode } from "wlipsync";
 
 import {
