@@ -11,6 +11,19 @@ import {
 } from "./hover-awareness.js";
 
 import type { AgentPhase } from "../../shared/types.js";
+import {
+	BREATHING_FREQ,
+	BREATHING_AMP,
+	HEAD_SWAY_MULTIPLIER_THINKING,
+	HEAD_SWAY_MULTIPLIER_SPEAKING,
+	HEAD_SWAY_MULTIPLIER_DEFAULT,
+	HEAD_SWAY_FREQ_X,
+	HEAD_SWAY_FREQ_Y,
+	HEAD_SWAY_AMP,
+	SPEAKING_NOD_AMP,
+	SPEAKING_NOD_FREQ,
+	WORKING_TILT,
+} from "../../shared/config.js";
 
 /**
  * Get a bone from VRM with fallback for VRM 0.x/1.0 compatibility.
@@ -82,7 +95,7 @@ export function createAnimator(vrm: VRM): Animator {
 	function updateBreathing(elapsed: number): void {
 		const chest = getBone(currentVrm, "chest");
 		if (chest) {
-			chest.rotation.x = Math.sin(elapsed * 1.8 * Math.PI * 2) * 0.005;
+			chest.rotation.x = Math.sin(elapsed * BREATHING_FREQ * Math.PI * 2) * BREATHING_AMP;
 		}
 	}
 
@@ -121,17 +134,20 @@ export function createAnimator(vrm: VRM): Animator {
 		const head = getBone(currentVrm, "head");
 		if (!head) return;
 
-		const swayMultiplier = currentPhase === "thinking" ? 2.5 : currentPhase === "speaking" ? 1.5 : 1.0;
+		const swayMultiplier =
+			currentPhase === "thinking" ? HEAD_SWAY_MULTIPLIER_THINKING :
+			currentPhase === "speaking" ? HEAD_SWAY_MULTIPLIER_SPEAKING :
+			HEAD_SWAY_MULTIPLIER_DEFAULT;
 
-		head.rotation.x = Math.sin(elapsed * 0.5) * 0.01 * swayMultiplier;
-		head.rotation.y = Math.sin(elapsed * 0.3) * 0.01 * swayMultiplier;
+		head.rotation.x = Math.sin(elapsed * HEAD_SWAY_FREQ_X) * HEAD_SWAY_AMP * swayMultiplier;
+		head.rotation.y = Math.sin(elapsed * HEAD_SWAY_FREQ_Y) * HEAD_SWAY_AMP * swayMultiplier;
 
 		if (currentPhase === "working") {
-			head.rotation.x += 0.05;
+			head.rotation.x += WORKING_TILT;
 		}
 
 		if (currentPhase === "speaking") {
-			head.rotation.x += Math.sin(elapsed * 3.0) * 0.015;
+			head.rotation.x += Math.sin(elapsed * SPEAKING_NOD_FREQ) * SPEAKING_NOD_AMP;
 		}
 	}
 

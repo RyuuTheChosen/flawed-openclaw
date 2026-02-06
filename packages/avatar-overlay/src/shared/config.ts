@@ -61,6 +61,25 @@ export const SEND_BUTTON_SIZE = 32;
 export const ICON_SIZE = 16;
 export const INPUT_MAX_DISPLAY_CHARS = 100; // Show counter after this
 
+// === Animator: Breathing ===
+export const BREATHING_FREQ = 1.8;
+export const BREATHING_AMP = 0.005;
+
+// === Animator: Head Sway ===
+export const HEAD_SWAY_MULTIPLIER_THINKING = 2.5;
+export const HEAD_SWAY_MULTIPLIER_SPEAKING = 1.5;
+export const HEAD_SWAY_MULTIPLIER_DEFAULT = 1.0;
+export const HEAD_SWAY_FREQ_X = 0.5;
+export const HEAD_SWAY_FREQ_Y = 0.3;
+export const HEAD_SWAY_AMP = 0.01;
+
+// === Animator: Speaking Nod ===
+export const SPEAKING_NOD_AMP = 0.015;
+export const SPEAKING_NOD_FREQ = 3.0;
+
+// === Animator: Working Tilt ===
+export const WORKING_TILT = 0.05;
+
 // === TTS Settings ===
 export const TTS_ENABLED_DEFAULT = false;
 export const TTS_RATE_DEFAULT = 1.0;
