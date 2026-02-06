@@ -82,6 +82,11 @@ export interface TTSService {
 	 * Get the current voice ID.
 	 */
 	getCurrentVoice(): string | null;
+
+	/**
+	 * Get the audio player (if available). Used for wLipSync integration.
+	 */
+	getAudioPlayer?(): import("./audio-player.js").AudioPlayer | null;
 }
 
 // === Controller Config ===

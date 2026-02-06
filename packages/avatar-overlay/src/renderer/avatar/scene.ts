@@ -6,6 +6,7 @@ export interface AvatarScene {
 	scene: THREE.Scene;
 	camera: THREE.PerspectiveCamera;
 	setCameraZoom(zoom: number): number;
+	getLights(): THREE.Light[];
 }
 
 export function createScene(canvas: HTMLCanvasElement): AvatarScene {
@@ -60,5 +61,8 @@ export function createScene(canvas: HTMLCanvasElement): AvatarScene {
 		return clamped;
 	}
 
-	return { renderer, scene, camera, setCameraZoom };
+	return {
+		renderer, scene, camera, setCameraZoom,
+		getLights: () => [ambient, keyLight, fillLight],
+	};
 }

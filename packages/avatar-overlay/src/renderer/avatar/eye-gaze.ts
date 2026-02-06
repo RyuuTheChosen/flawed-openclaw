@@ -24,6 +24,8 @@ export interface EyeGazeController {
 		windowHeight: number,
 	): void;
 	setTrackingMultiplier(multiplier: number): void;
+	applySaccadeOffset(yawDeg: number, pitchDeg: number): void;
+	isActivelyTracking(): boolean;
 	setVrm(vrm: VRM): void;
 	reset(): void;
 }
@@ -110,6 +112,10 @@ export function createEyeGazeController(
 	let lastX = 0;
 	let lastY = 0;
 
+	// Saccade offset (degrees, applied additively to eye lookAt)
+	let saccadeYaw = 0;
+	let saccadePitch = 0;
+
 	return {
 		update(delta: number): void {
 			// Idle timeout check
@@ -139,12 +145,16 @@ export function createEyeGazeController(
 			currentEyeYaw += (targetEyeYaw - currentEyeYaw) * eyeStep;
 			currentEyePitch += (targetEyePitch - currentEyePitch) * eyeStep;
 
-			// Apply to VRM lookAt (graceful no-op if VRM lacks lookAt)
+			// Apply to VRM lookAt with saccade offset (graceful no-op if VRM lacks lookAt)
 			const lookAt = currentVrm.lookAt;
 			if (lookAt) {
-				lookAt.yaw = currentEyeYaw;
-				lookAt.pitch = currentEyePitch;
+				lookAt.yaw = currentEyeYaw + saccadeYaw;
+				lookAt.pitch = currentEyePitch + saccadePitch;
 			}
+
+			// Reset saccade offset after applying (must be set each frame)
+			saccadeYaw = 0;
+			saccadePitch = 0;
 		},
 
 		setScreenPosition(
@@ -202,6 +212,16 @@ export function createEyeGazeController(
 
 		setTrackingMultiplier(multiplier: number): void {
 			trackingMultiplier = multiplier;
+		},
+
+		applySaccadeOffset(yawDeg: number, pitchDeg: number): void {
+			saccadeYaw = yawDeg;
+			saccadePitch = pitchDeg;
+		},
+
+		isActivelyTracking(): boolean {
+			const now = performance.now() / 1000;
+			return now - lastMoveTime < idleTimeout;
 		},
 
 		setVrm(newVrm: VRM): void {

@@ -5,6 +5,7 @@ import { createLipSync, type LipSync } from "./lip-sync.js";
 import { loadAnimationLibrary, type AnimationLibrary } from "./animation-loader.js";
 import { createStateMachine, type AnimationStateMachine } from "./state-machine.js";
 import { createEyeGazeController, type EyeGazeController } from "./eye-gaze.js";
+import { createEyeSaccadeController, type EyeSaccadeController } from "./eye-saccades.js";
 import {
 	createHoverAwarenessController,
 	type HoverAwarenessController,
@@ -74,6 +75,7 @@ export function createAnimator(vrm: VRM): Animator {
 	const expressionCtrl = createExpressionController(vrm);
 	const lipSync = createLipSync(vrm);
 	const eyeGaze = createEyeGazeController(vrm);
+	const eyeSaccade = createEyeSaccadeController();
 	const hoverAwareness = createHoverAwarenessController();
 
 	// Animation system state
@@ -185,6 +187,10 @@ export function createAnimator(vrm: VRM): Animator {
 			// 2. Blinking (procedural expression)
 			updateBlinking(delta, elapsed);
 
+			// 2.5. Eye saccades (before gaze so offset is applied when gaze writes lookAt)
+			const saccadeOffset = eyeSaccade.update(delta, eyeGaze.isActivelyTracking());
+			eyeGaze.applySaccadeOffset(saccadeOffset.yaw, saccadeOffset.pitch);
+
 			// 3. Eye gaze tracking
 			eyeGaze.update(delta);
 
@@ -224,6 +230,7 @@ export function createAnimator(vrm: VRM): Animator {
 			expressionCtrl.setVrm(newVrm);
 			lipSync.setVrm(newVrm);
 			eyeGaze.setVrm(newVrm);
+			eyeSaccade.reset();
 			hoverAwareness.reset();
 
 			// Re-retarget and rebuild state machine if library is available

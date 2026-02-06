@@ -359,6 +359,10 @@ export function createKokoroTTSService(events: TTSEvents): TTSService {
 		getCurrentVoice(): string | null {
 			return currentVoice;
 		},
+
+		getAudioPlayer(): AudioPlayer | null {
+			return audioPlayer;
+		},
 	};
 }
 

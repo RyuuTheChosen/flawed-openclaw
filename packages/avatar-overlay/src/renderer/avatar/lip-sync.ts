@@ -34,6 +34,9 @@ export interface LipSync {
 
 	// Audio-reactive intensity
 	setEnergyMultiplier(energy: number): void;
+
+	// Realtime audio-driven weights (from wLipSync analyzer)
+	setRealtimeWeights(weights: Record<Viseme, number>): void;
 }
 
 export function createLipSync(vrm: VRM): LipSync {
@@ -55,6 +58,10 @@ export function createLipSync(vrm: VRM): LipSync {
 	const weights: Record<Viseme, number> = { aa: 0, ih: 0, ou: 0, ee: 0, oh: 0 };
 	let energyMultiplier = 1.0;
 
+	// Realtime weights from wLipSync (bypasses text/audio queue)
+	let realtimeActive = false;
+	const realtimeWeights: Record<Viseme, number> = { aa: 0, ih: 0, ou: 0, ee: 0, oh: 0 };
+
 	function resetTextQueue(): void {
 		textQueue = [];
 		textReadIndex = 0;
@@ -71,6 +78,8 @@ export function createLipSync(vrm: VRM): LipSync {
 		resetTextQueue();
 		resetVisemeQueue();
 		activeViseme = null;
+		realtimeActive = false;
+		for (const v of ALL_VISEMES) realtimeWeights[v] = 0;
 	}
 
 	function updateTextMode(delta: number): void {
@@ -153,20 +162,34 @@ export function createLipSync(vrm: VRM): LipSync {
 				return;
 			}
 
-			// Update based on current mode
-			if (mode === "text") {
-				updateTextMode(delta);
+			if (realtimeActive) {
+				// Realtime mode: use wLipSync weights directly with max-merge
+				for (const v of ALL_VISEMES) {
+					const goal = realtimeWeights[v];
+					const step = Math.min(delta * VISEME_LERP_SPEED, 1);
+					weights[v] += (goal - weights[v]) * step;
+					// Max-merge: preserve expression values when lip sync is silent
+					const current = expr.getValue(v) ?? 0;
+					expr.setValue(v, Math.max(current, weights[v]));
+				}
 			} else {
-				updateAudioMode(delta);
-			}
+				// Text/audio queue mode
+				if (mode === "text") {
+					updateTextMode(delta);
+				} else {
+					updateAudioMode(delta);
+				}
 
-			// Apply viseme weights with smooth lerping and energy modulation
-			const step = Math.min(delta * VISEME_LERP_SPEED, 1);
-			for (const v of ALL_VISEMES) {
-				const baseGoal = v === activeViseme ? 0.8 : 0;
-				const goal = baseGoal * energyMultiplier; // Energy scales intensity
-				weights[v] += (goal - weights[v]) * step;
-				expr.setValue(v, weights[v]);
+				// Apply viseme weights with smooth lerping, energy modulation, and max-merge
+				const step = Math.min(delta * VISEME_LERP_SPEED, 1);
+				for (const v of ALL_VISEMES) {
+					const baseGoal = v === activeViseme ? 0.8 : 0;
+					const goal = baseGoal * energyMultiplier;
+					weights[v] += (goal - weights[v]) * step;
+					// Max-merge: preserve expression values when lip sync is silent
+					const current = expr.getValue(v) ?? 0;
+					expr.setValue(v, Math.max(current, weights[v]));
+				}
 			}
 		},
 
@@ -188,6 +211,7 @@ export function createLipSync(vrm: VRM): LipSync {
 			if (mode === newMode) return;
 			console.log(`[LipSync] setMode: ${mode} -> ${newMode}`);
 			mode = newMode;
+			realtimeActive = false; // Switching modes disables realtime
 			// Clear the other mode's queue when switching
 			if (newMode === "text") {
 				resetVisemeQueue();
@@ -222,6 +246,13 @@ export function createLipSync(vrm: VRM): LipSync {
 
 		setEnergyMultiplier(energy: number): void {
 			energyMultiplier = Math.max(0, Math.min(1, energy));
+		},
+
+		setRealtimeWeights(newWeights: Record<Viseme, number>): void {
+			realtimeActive = true;
+			for (const v of ALL_VISEMES) {
+				realtimeWeights[v] = newWeights[v] ?? 0;
+			}
 		},
 	};
 }

@@ -8,7 +8,8 @@ import {
 	createSpringBoneController,
 	type SpringBoneController,
 } from "./avatar/spring-bones.js";
-import { CAMERA_ZOOM_STEP } from "../shared/config.js";
+import { createIBLEnhancer, type IBLEnhancer } from "./avatar/ibl-enhancer.js";
+import { CAMERA_ZOOM_STEP, IBL_ENABLED } from "../shared/config.js";
 
 const bridge = window.avatarBridge;
 
@@ -16,10 +17,17 @@ let currentVrm: VRM | null = null;
 let animator: Animator | null = null;
 let ttsController: TTSController | null = null;
 let springBones: SpringBoneController | null = null;
+let iblEnhancer: IBLEnhancer | null = null;
 
 async function boot(): Promise<void> {
 	const canvas = document.getElementById("avatar-canvas") as HTMLCanvasElement;
-	const { renderer, scene, camera, setCameraZoom } = createScene(canvas);
+	const { renderer, scene, camera, setCameraZoom, getLights } = createScene(canvas);
+
+	// Initialize IBL enhancer
+	if (IBL_ENABLED) {
+		iblEnhancer = createIBLEnhancer();
+		iblEnhancer.computeSHFromLights(getLights());
+	}
 
 	// Track previous phase for TTS session management
 	let previousPhase: string = "idle";
@@ -94,6 +102,7 @@ async function boot(): Promise<void> {
 			});
 		}
 		if (animator) animator.setVrm(currentVrm);
+		iblEnhancer?.enhanceVrm(currentVrm);
 	});
 
 	// Load default VRM
@@ -102,6 +111,7 @@ async function boot(): Promise<void> {
 		springBones?.setFromGltf(gltf);
 	});
 	animator = createAnimator(currentVrm);
+	iblEnhancer?.enhanceVrm(currentVrm);
 
 	// Initialize TTS controller with persisted state
 	const ttsEnabled = await bridge.getTtsEnabled();
@@ -265,6 +275,7 @@ async function boot(): Promise<void> {
 
 		if (currentVrm && animator) {
 			animator.update(delta, elapsed);
+			ttsController?.update(delta); // Pump wLipSync weights to lip sync
 			springBones?.update(delta); // Update spring bones after animator
 			currentVrm.update(delta);
 		}

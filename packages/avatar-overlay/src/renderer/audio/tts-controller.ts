@@ -8,6 +8,8 @@ import type { TTSService, TTSEvents, TTSEngineType, TTSVoice, TTSControllerConfi
 import { createTTSServiceFactory, type TTSServiceFactory } from "./tts-service-factory.js";
 import { wordToVisemes, estimateWordDuration } from "./phoneme-mapper.js";
 import type { LipSync } from "../avatar/lip-sync.js";
+import { createWLipSyncAnalyzer, type WLipSyncAnalyzer } from "./wlipsync-analyzer.js";
+import type { AudioPlayer } from "./audio-player.js";
 
 export interface TTSController {
 	/**
@@ -71,6 +73,16 @@ export interface TTSController {
 	setVoice(voiceId: string): void;
 
 	/**
+	 * Set the audio player for wLipSync integration.
+	 */
+	setAudioPlayer(player: AudioPlayer): void;
+
+	/**
+	 * Pump wLipSync weights to lip sync each frame.
+	 */
+	update(delta: number): void;
+
+	/**
 	 * Cleanup resources.
 	 */
 	dispose(): void;
@@ -90,6 +102,9 @@ export function createTTSController(
 	let speakingCallbacks: Array<(speaking: boolean) => void> = [];
 	let disposed = false;
 	let wasSpeaking = false;
+	let wlipSync: WLipSyncAnalyzer | null = null;
+	let wlipSyncInitializing = false;
+	let audioPlayer: AudioPlayer | null = null;
 
 	function notifySpeakingChange(speaking: boolean): void {
 		if (speaking !== wasSpeaking) {
@@ -100,10 +115,39 @@ export function createTTSController(
 		}
 	}
 
+	function initWLipSync(): void {
+		if (wlipSync || wlipSyncInitializing) return;
+
+		// Get the audio player from the TTS service (Kokoro creates its own)
+		const player = ttsService?.getAudioPlayer?.() ?? audioPlayer;
+		if (!player) return;
+		const ctx = player.getAudioContext();
+		if (!ctx) return;
+
+		wlipSyncInitializing = true;
+		createWLipSyncAnalyzer(ctx).then((analyzer) => {
+			if (disposed) {
+				analyzer.dispose();
+				return;
+			}
+			wlipSync = analyzer;
+			player.setAnalysisNode(analyzer.node);
+			console.log("[TTS] wLipSync analyzer initialized");
+		}).catch((err) => {
+			console.warn("[TTS] Failed to initialize wLipSync:", err);
+		}).finally(() => {
+			wlipSyncInitializing = false;
+		});
+	}
+
 	function createEvents(): TTSEvents {
 		return {
 			onStart: () => {
 				if (disposed) return;
+				// If Kokoro, set up wLipSync on first speech
+				if (currentEngine === "kokoro") {
+					initWLipSync();
+				}
 				notifySpeakingChange(true);
 			},
 			onEnd: () => {
@@ -114,6 +158,9 @@ export function createTTSController(
 			},
 			onBoundary: (word, _charIndex, _charLength) => {
 				if (disposed || !ttsEnabled) return;
+
+				// Skip phoneme-mapper when wLipSync is active
+				if (wlipSync) return;
 
 				// Convert word to viseme frames and feed to lip sync
 				const duration = estimateWordDuration(word);
@@ -234,6 +281,14 @@ export function createTTSController(
 
 			currentEngine = engine;
 
+			// Clean up wLipSync if switching away from Kokoro
+			if (wlipSync && engine !== "kokoro") {
+				audioPlayer?.setAnalysisNode(null);
+				wlipSync.dispose();
+				wlipSync = null;
+				lipSync.setMode("text"); // Reset to text mode (also disables realtime)
+			}
+
 			// Reset voice when switching engines (voices are engine-specific)
 			currentVoiceId = "";
 
@@ -263,8 +318,24 @@ export function createTTSController(
 			}
 		},
 
+		setAudioPlayer(player: AudioPlayer): void {
+			audioPlayer = player;
+		},
+
+		update(delta: number): void {
+			if (wlipSync) {
+				wlipSync.update(delta);
+				const weights = wlipSync.getWeights();
+				lipSync.setRealtimeWeights(weights);
+			}
+		},
+
 		dispose(): void {
 			disposed = true;
+			if (wlipSync) {
+				wlipSync.dispose();
+				wlipSync = null;
+			}
 			disposeService();
 			speakingCallbacks = [];
 			wasSpeaking = false;

@@ -80,6 +80,35 @@ export const SPEAKING_NOD_FREQ = 3.0;
 // === Animator: Working Tilt ===
 export const WORKING_TILT = 0.05;
 
+// === Eye Saccades ===
+export const SACCADE_YAW_RANGE = 5; // ±degrees
+export const SACCADE_PITCH_RANGE = 3.75; // ±degrees
+export const SACCADE_MOVE_DURATION = 0.12; // seconds
+export const SACCADE_HOLD_DURATION_MIN = 0.08;
+export const SACCADE_HOLD_DURATION_MAX = 0.12;
+export const SACCADE_TRACKING_DAMPING = 0.3;
+export const SACCADE_INTERVAL_STEP = 400; // ms step for distribution
+
+// === Expression Durations ===
+export const EXPRESSION_DURATION_SURPRISED = 0.1;
+export const EXPRESSION_DURATION_ANGRY = 0.25;
+export const EXPRESSION_DURATION_HAPPY = 0.3;
+export const EXPRESSION_DURATION_NEUTRAL = 0.3;
+export const EXPRESSION_DURATION_SAD = 0.4;
+export const EXPRESSION_DURATION_RELAXED = 0.5;
+
+// === wLipSync ===
+export const WLIPSYNC_WINNER_CAP = 0.7;
+export const WLIPSYNC_RUNNER_CAP = 0.35;
+export const WLIPSYNC_ATTACK = 50;
+export const WLIPSYNC_RELEASE = 30;
+export const WLIPSYNC_SILENCE_VOL = 0.04;
+export const WLIPSYNC_SILENCE_IDLE_MS = 160;
+
+// === IBL Shader ===
+export const IBL_INTENSITY = 0.3;
+export const IBL_ENABLED = true;
+
 // === TTS Settings ===
 export const TTS_ENABLED_DEFAULT = false;
 export const TTS_RATE_DEFAULT = 1.0;

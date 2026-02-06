@@ -35,6 +35,12 @@ export interface AudioPlayer {
 	getAnalyserNode(): AnalyserNode | null;
 
 	/**
+	 * Set an analysis node for parallel audio tap (e.g., wLipSync).
+	 * Each new source auto-connects to this node alongside the playback chain.
+	 */
+	setAnalysisNode(node: AudioNode | null): void;
+
+	/**
 	 * Cleanup resources.
 	 */
 	dispose(): void;
@@ -44,6 +50,7 @@ export function createAudioPlayer(events: AudioPlayerEvents = {}): AudioPlayer {
 	let audioContext: AudioContext | null = null;
 	let currentSource: AudioBufferSourceNode | null = null;
 	let analyser: AnalyserNode | null = null;
+	let analysisNode: AudioNode | null = null;
 	let playing = false;
 	let disposed = false;
 
@@ -98,6 +105,11 @@ export function createAudioPlayer(events: AudioPlayerEvents = {}): AudioPlayer {
 				currentSource.connect(ctx.destination);
 			}
 
+			// Parallel tap for analysis (e.g., wLipSync)
+			if (analysisNode) {
+				currentSource.connect(analysisNode);
+			}
+
 			currentSource.onended = () => {
 				if (disposed) return;
 				playing = false;
@@ -127,9 +139,14 @@ export function createAudioPlayer(events: AudioPlayerEvents = {}): AudioPlayer {
 			return analyser;
 		},
 
+		setAnalysisNode(node: AudioNode | null): void {
+			analysisNode = node;
+		},
+
 		dispose(): void {
 			disposed = true;
 			cleanupSource();
+			analysisNode = null; // Don't dispose — owned by caller
 			if (analyser) {
 				analyser.disconnect();
 				analyser = null;
