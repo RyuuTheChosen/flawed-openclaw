@@ -1,6 +1,11 @@
 /**
  * Kokoro.js TTS service implementation.
  * Uses local ONNX model for high-quality, offline text-to-speech.
+ *
+ * Streaming strategy: text arrives word-by-word from the gateway.
+ * We buffer until a sentence boundary, then immediately queue that
+ * sentence for synthesis. Audio plays as soon as the first segment
+ * is ready (no minimum buffer wait).
  */
 
 import type { TTSService, TTSEvents, TTSVoice, TTSEngineType } from "./types.js";
@@ -20,9 +25,20 @@ interface GeneratedAudio {
 }
 
 const MAX_PENDING_SEGMENTS = 50;
-const MAX_SEGMENT_CHARS = 1000; // Larger chunks = fewer generation calls
-const PREFETCH_COUNT = 3; // Pre-generate this many segments ahead
-const MIN_BUFFER_BEFORE_PLAY = 2; // Wait for this many segments before starting playback
+const MAX_SEGMENT_CHARS = 500;
+const PREFETCH_COUNT = 3;
+
+/**
+ * Flush the sentence buffer if no punctuation arrives within this many chars.
+ * Prevents long unpunctuated runs (lists, code, etc.) from blocking playback.
+ */
+const SENTENCE_BUFFER_FLUSH_CHARS = 200;
+
+/**
+ * Flush the sentence buffer if no sentence boundary arrives within this time.
+ * Ensures partial text doesn't sit in the buffer forever during slow streams.
+ */
+const SENTENCE_BUFFER_FLUSH_MS = 3000;
 
 export function createKokoroTTSService(events: TTSEvents): TTSService {
 	let currentVoice = KOKORO_DEFAULT_VOICE;
@@ -31,10 +47,14 @@ export function createKokoroTTSService(events: TTSEvents): TTSService {
 	let disposed = false;
 
 	const pendingSegments: PendingSegment[] = [];
-	const readyAudio: GeneratedAudio[] = []; // Pre-generated audio ready to play
+	const readyAudio: GeneratedAudio[] = [];
 	let isGenerating = false;
 	let isPlaying = false;
 	let audioPlayer: AudioPlayer | null = null;
+
+	// Sentence buffering for streaming text
+	let sentenceBuffer = "";
+	let flushTimer: ReturnType<typeof setTimeout> | null = null;
 
 	function getPlayer(): AudioPlayer {
 		if (!audioPlayer) {
@@ -47,7 +67,6 @@ export function createKokoroTTSService(events: TTSEvents): TTSService {
 				onPlaybackEnd: () => {
 					if (disposed) return;
 					isPlaying = false;
-					// Play next ready audio immediately
 					playNext();
 				},
 			});
@@ -72,13 +91,11 @@ export function createKokoroTTSService(events: TTSEvents): TTSService {
 		for (const word of words) {
 			const wordDuration = (word.length / totalChars) * audioDurationSec * 1000;
 
-			// Find char index in original text
 			const charIndex = text.indexOf(word, charOffset);
 			if (charIndex !== -1) {
 				charOffset = charIndex + word.length;
 			}
 
-			// Schedule boundary event
 			const capturedWord = word;
 			const capturedCharIndex = charIndex !== -1 ? charIndex : charOffset;
 			const capturedTimeOffset = timeOffset;
@@ -92,59 +109,127 @@ export function createKokoroTTSService(events: TTSEvents): TTSService {
 		}
 	}
 
+	// ── Sentence extraction ───────────────────────────────────────
+
 	/**
-	 * Split text into larger segments for fewer generation calls.
-	 * Tries to split at paragraph/sentence boundaries when possible.
+	 * Extract complete sentences from the buffer.
+	 * A sentence ends with . ? or ! followed by whitespace.
+	 * Returns extracted sentences and the remaining partial text.
 	 */
+	function extractSentences(buffer: string): { sentences: string[]; remainder: string } {
+		const sentences: string[] = [];
+		// Split after sentence-ending punctuation (.?!) followed by whitespace.
+		// The lookbehind keeps the punctuation attached to the sentence.
+		const regex = /(?<=[.!?])\s+/g;
+		let lastIndex = 0;
+		let match: RegExpExecArray | null;
+
+		while ((match = regex.exec(buffer)) !== null) {
+			const sentence = buffer.slice(lastIndex, match.index).trim();
+			if (sentence) sentences.push(sentence);
+			lastIndex = match.index + match[0].length;
+		}
+
+		return { sentences, remainder: buffer.slice(lastIndex) };
+	}
+
+	/**
+	 * Feed text into the sentence buffer. Complete sentences are
+	 * extracted and queued for synthesis immediately. Partial text
+	 * stays in the buffer until more arrives or the flush timer fires.
+	 */
+	function feedBuffer(text: string): void {
+		sentenceBuffer += text;
+
+		const { sentences, remainder } = extractSentences(sentenceBuffer);
+
+		// Queue every complete sentence
+		for (const s of sentences) {
+			queueSegment(s);
+		}
+
+		sentenceBuffer = remainder;
+
+		// Force-flush if buffer is too long without punctuation
+		if (sentenceBuffer.length >= SENTENCE_BUFFER_FLUSH_CHARS) {
+			flushBuffer();
+			return;
+		}
+
+		// Reset the timer — flush if no new sentence boundary soon
+		resetFlushTimer();
+	}
+
+	function flushBuffer(): void {
+		clearFlushTimer();
+		const text = sentenceBuffer.trim();
+		sentenceBuffer = "";
+		if (text) queueSegment(text);
+	}
+
+	function resetFlushTimer(): void {
+		clearFlushTimer();
+		if (sentenceBuffer.trim()) {
+			flushTimer = setTimeout(flushBuffer, SENTENCE_BUFFER_FLUSH_MS);
+		}
+	}
+
+	function clearFlushTimer(): void {
+		if (flushTimer !== null) {
+			clearTimeout(flushTimer);
+			flushTimer = null;
+		}
+	}
+
+	// ── Segment splitting (for large blocks passed to speak()) ────
+
 	function splitIntoSegments(text: string): string[] {
 		const trimmed = text.trim();
 		if (!trimmed) return [];
+		if (trimmed.length <= MAX_SEGMENT_CHARS) return [trimmed];
 
-		// If text is short enough, return as single segment
-		if (trimmed.length <= MAX_SEGMENT_CHARS) {
-			return [trimmed];
-		}
-
-		// Split into paragraphs first, then sentences if needed
+		// Split on sentence boundaries first
 		const segments: string[] = [];
-		const paragraphs = trimmed.split(/\n\n+/);
+		const { sentences, remainder } = extractSentences(trimmed);
 
-		let currentChunk = "";
-
-		for (const para of paragraphs) {
-			const paraText = para.trim();
-			if (!paraText) continue;
-
-			// If adding this paragraph would exceed limit, save current and start new
-			if (currentChunk && (currentChunk.length + paraText.length + 2) > MAX_SEGMENT_CHARS) {
-				if (currentChunk.trim()) {
-					segments.push(currentChunk.trim());
-				}
-				currentChunk = paraText;
+		let chunk = "";
+		for (const s of sentences) {
+			if (chunk && chunk.length + s.length + 1 > MAX_SEGMENT_CHARS) {
+				segments.push(chunk.trim());
+				chunk = s;
 			} else {
-				currentChunk = currentChunk ? currentChunk + "\n\n" + paraText : paraText;
+				chunk = chunk ? chunk + " " + s : s;
 			}
 		}
-
-		// Add remaining chunk
-		if (currentChunk.trim()) {
-			segments.push(currentChunk.trim());
+		if (remainder) {
+			chunk = chunk ? chunk + " " + remainder : remainder;
 		}
+		if (chunk.trim()) segments.push(chunk.trim());
 
 		return segments;
 	}
 
-	/**
-	 * Generate audio for the next pending segment and add to ready queue.
-	 * Runs in background, keeps prefetching ahead.
-	 */
+	// ── Generation pipeline ───────────────────────────────────────
+
+	function queueSegment(text: string): void {
+		if (disposed || !text.trim()) return;
+
+		// For very long text, split further
+		const segments = splitIntoSegments(text);
+		const available = MAX_PENDING_SEGMENTS - pendingSegments.length;
+		const toAdd = segments.slice(0, available);
+
+		for (const seg of toAdd) {
+			pendingSegments.push({ text: seg, cancelled: false });
+		}
+
+		generateNext();
+	}
+
 	async function generateNext(): Promise<void> {
 		if (disposed || isGenerating) return;
-
-		// Check if we have enough pre-generated audio
 		if (readyAudio.length >= PREFETCH_COUNT) return;
 
-		// Find next non-cancelled segment
 		let segment: PendingSegment | undefined;
 		while (pendingSegments.length > 0) {
 			segment = pendingSegments.shift();
@@ -152,21 +237,13 @@ export function createKokoroTTSService(events: TTSEvents): TTSService {
 			segment = undefined;
 		}
 
-		if (!segment) return; // No more segments to generate
+		if (!segment) return;
 
 		isGenerating = true;
 
 		try {
 			const loader = getKokoroLoader();
-			const model = await loader.getModel();
-
-			if (disposed || segment.cancelled) {
-				isGenerating = false;
-				generateNext(); // Try next segment
-				return;
-			}
-
-			const result = await model.generate(segment.text, { voice: currentVoice });
+			const result = await loader.generate(segment.text, currentVoice);
 
 			if (disposed || segment.cancelled) {
 				isGenerating = false;
@@ -174,54 +251,36 @@ export function createKokoroTTSService(events: TTSEvents): TTSService {
 				return;
 			}
 
-			// Add to ready queue
 			readyAudio.push({
 				audio: result.audio,
-				sampleRate: result.sampling_rate,
+				sampleRate: result.sampleRate,
 				text: segment.text,
 			});
 
 			isGenerating = false;
 
-			// Start playback if not already playing
+			// Start playback immediately — no minimum buffer wait
 			if (!isPlaying) {
 				playNext();
 			}
 
-			// Continue prefetching
 			generateNext();
 		} catch (error) {
 			console.error("[Kokoro] Generation error:", error);
 			events.onError(error instanceof Error ? error.message : "Kokoro generation failed");
 			isGenerating = false;
-			// Continue with next segment
 			generateNext();
 		}
 	}
 
-	/**
-	 * Play the next ready audio segment.
-	 */
 	function playNext(): void {
 		if (disposed || isPlaying) return;
-
-		// If we haven't started playing yet, wait for minimum buffer
-		// (unless there's nothing more to generate)
-		const moreToGenerate = isGenerating || pendingSegments.length > 0;
-		if (!speaking && moreToGenerate && readyAudio.length < MIN_BUFFER_BEFORE_PLAY) {
-			// Wait for more buffer before starting
-			return;
-		}
 
 		const audio = readyAudio.shift();
 
 		if (!audio) {
-			// No ready audio - check if we're still generating
-			if (moreToGenerate) {
-				// Still generating, will be called again when audio is ready
-				return;
-			}
-			// All done
+			const moreToGenerate = isGenerating || pendingSegments.length > 0 || sentenceBuffer.trim().length > 0;
+			if (moreToGenerate) return;
 			if (speaking) {
 				speaking = false;
 				events.onEnd();
@@ -231,82 +290,58 @@ export function createKokoroTTSService(events: TTSEvents): TTSService {
 
 		isPlaying = true;
 
-		// Fire boundary events for this segment
 		const audioDurationSec = audio.audio.length / audio.sampleRate;
 		fireEstimatedBoundaryEvents(audio.text, audioDurationSec);
 
-		// Play audio
 		getPlayer().play(audio.audio, audio.sampleRate);
 
-		// Trigger more generation while playing
 		generateNext();
 	}
 
-	/**
-	 * Queue text for speaking.
-	 */
-	function queueSegments(text: string): void {
-		if (disposed || !text.trim()) return;
+	// ── Cancellation ──────────────────────────────────────────────
 
-		const segments = splitIntoSegments(text);
-
-		// Limit pending segments to prevent memory issues
-		const availableSlots = MAX_PENDING_SEGMENTS - pendingSegments.length;
-		const toAdd = segments.slice(0, availableSlots);
-
-		for (const seg of toAdd) {
-			pendingSegments.push({ text: seg, cancelled: false });
-		}
-
-		// Start generating (will also start playback when ready)
-		generateNext();
-	}
-
-	/**
-	 * Cancel all pending and current speech.
-	 */
 	function cancelAll(): void {
-		// Mark all pending as cancelled
+		clearFlushTimer();
+		sentenceBuffer = "";
+
 		for (const segment of pendingSegments) {
 			segment.cancelled = true;
 		}
 		pendingSegments.length = 0;
-
-		// Clear ready audio queue
 		readyAudio.length = 0;
 
-		// Stop current playback
-		if (audioPlayer) {
-			audioPlayer.stop();
-		}
+		if (audioPlayer) audioPlayer.stop();
 
 		speaking = false;
 		isPlaying = false;
 	}
 
+	// ── Public API ────────────────────────────────────────────────
+
 	return {
 		speak(text: string): void {
 			if (disposed || !text.trim()) return;
-
-			// Cancel current and queue new
 			cancelAll();
-			queueSegments(text);
+			// Full text — split into segments directly (no sentence buffering)
+			const segments = splitIntoSegments(text);
+			const available = MAX_PENDING_SEGMENTS - pendingSegments.length;
+			for (const seg of segments.slice(0, available)) {
+				pendingSegments.push({ text: seg, cancelled: false });
+			}
+			generateNext();
 		},
 
 		speakDelta(fullText: string): void {
 			if (disposed) return;
-
-			// Only speak the new portion
 			if (fullText.length <= lastSpokenIndex) return;
 
-			const newText = fullText.slice(lastSpokenIndex).trim();
+			const newText = fullText.slice(lastSpokenIndex);
 			if (!newText) return;
 
-			// Update tracking
 			lastSpokenIndex = fullText.length;
 
-			// Queue new segments
-			queueSegments(newText);
+			// Feed into sentence buffer — complete sentences are queued immediately
+			feedBuffer(newText);
 		},
 
 		cancel(): void {
@@ -314,11 +349,16 @@ export function createKokoroTTSService(events: TTSEvents): TTSService {
 		},
 
 		isSpeaking(): boolean {
-			return speaking || isPlaying || isGenerating || readyAudio.length > 0 || pendingSegments.length > 0;
+			return speaking || isPlaying || isGenerating
+				|| readyAudio.length > 0
+				|| pendingSegments.length > 0
+				|| sentenceBuffer.trim().length > 0;
 		},
 
 		resetSpokenIndex(): void {
 			lastSpokenIndex = 0;
+			// Flush any buffered text from the previous session
+			flushBuffer();
 		},
 
 		dispose(): void {
@@ -329,9 +369,6 @@ export function createKokoroTTSService(events: TTSEvents): TTSService {
 				audioPlayer.dispose();
 				audioPlayer = null;
 			}
-
-			// Note: We don't dispose the model loader here as it's shared
-			// Call disposeKokoroLoader() separately when app shuts down
 
 			lastSpokenIndex = 0;
 			speaking = false;

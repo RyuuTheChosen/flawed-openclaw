@@ -1,116 +1,141 @@
 /**
- * Singleton model loader for Kokoro TTS.
- * Lazy-loads the model on first use and caches for session duration.
+ * Worker-based Kokoro TTS loader.
+ * Runs ONNX inference in a Web Worker to avoid blocking the renderer thread.
+ * Tries WebGPU first, falls back to WASM.
  */
 
-// Import types - actual import is dynamic to avoid bundling issues
-type KokoroTTS = {
-	generate(text: string, options: { voice: string }): Promise<{ audio: Float32Array; sampling_rate: number }>;
-};
+export interface KokoroLoader {
+	/** Wait for the worker model to be ready. */
+	waitReady(): Promise<void>;
 
-interface KokoroModelLoader {
-	/**
-	 * Get the Kokoro TTS model instance.
-	 * Lazy-loads on first call, returns cached instance on subsequent calls.
-	 */
-	getModel(): Promise<KokoroTTS>;
+	/** Generate audio in the worker (off main thread). */
+	generate(
+		text: string,
+		voice: string,
+	): Promise<{ audio: Float32Array; sampleRate: number }>;
 
-	/**
-	 * Check if model is currently loading.
-	 */
+	/** Check if model is currently loading. */
 	isLoading(): boolean;
 
-	/**
-	 * Check if model is loaded.
-	 */
+	/** Check if model is loaded and ready. */
 	isLoaded(): boolean;
 
-	/**
-	 * Dispose the model and free resources.
-	 */
+	/** Dispose the worker and free resources. */
 	dispose(): void;
 }
 
-let instance: KokoroModelLoader | null = null;
+type Pending = {
+	resolve: (result: { audio: Float32Array; sampleRate: number }) => void;
+	reject: (error: Error) => void;
+};
 
-function createModelLoader(): KokoroModelLoader {
-	let model: KokoroTTS | null = null;
-	let loadPromise: Promise<KokoroTTS> | null = null;
-	let loading = false;
+let instance: KokoroLoader | null = null;
+
+function createLoader(): KokoroLoader {
+	let ready = false;
+	let loading = true;
 	let disposed = false;
+	let readyResolve: (() => void) | null = null;
+	let readyReject: ((err: Error) => void) | null = null;
+	const readyPromise = new Promise<void>((res, rej) => {
+		readyResolve = res;
+		readyReject = rej;
+	});
+	const pending = new Map<string, Pending>();
 
-	async function loadModel(): Promise<KokoroTTS> {
-		if (disposed) {
-			throw new Error("Model loader has been disposed");
+	const worker = new Worker(
+		new URL("./kokoro-worker.js", import.meta.url),
+		{ type: "module" },
+	);
+
+	worker.onmessage = (e: MessageEvent) => {
+		const { type, id } = e.data;
+
+		if (type === "ready") {
+			ready = true;
+			loading = false;
+			console.log(`[Kokoro] Worker model loaded (${e.data.device})`);
+			readyResolve?.();
+			return;
 		}
 
-		loading = true;
-
-		try {
-			// Dynamic import to avoid bundling issues with WASM
-			const { KokoroTTS } = await import("kokoro-js");
-
-			// Load quantized model for smaller size (~92MB)
-			const tts = await KokoroTTS.from_pretrained(
-				"onnx-community/Kokoro-82M-v1.0-ONNX",
-				{ dtype: "q8" }
-			);
-
-			model = tts as unknown as KokoroTTS;
+		if (type === "init-error") {
 			loading = false;
-			return model;
-		} catch (error) {
-			loading = false;
-			loadPromise = null;
-			console.error("[Kokoro] Failed to load model:", error);
-			throw error;
+			console.error("[Kokoro] Worker init failed:", e.data.error);
+			readyReject?.(new Error(e.data.error));
+			return;
 		}
-	}
+
+		if (type === "audio") {
+			const p = pending.get(id);
+			if (p) {
+				pending.delete(id);
+				p.resolve({
+					audio: e.data.audio,
+					sampleRate: e.data.sampleRate,
+				});
+			}
+			return;
+		}
+
+		if (type === "error" && id) {
+			const p = pending.get(id);
+			if (p) {
+				pending.delete(id);
+				p.reject(new Error(e.data.error));
+			}
+		}
+	};
+
+	worker.onerror = (e) => {
+		console.error("[Kokoro] Worker error:", e);
+	};
+
+	// Start loading immediately
+	worker.postMessage({ type: "init" });
 
 	return {
-		async getModel(): Promise<KokoroTTS> {
-			if (disposed) {
-				throw new Error("Model loader has been disposed");
-			}
+		waitReady: () => readyPromise,
 
-			// Return cached model if available
-			if (model) {
-				return model;
-			}
+		async generate(
+			text: string,
+			voice: string,
+		): Promise<{ audio: Float32Array; sampleRate: number }> {
+			if (disposed) throw new Error("Loader disposed");
+			if (!ready) await readyPromise;
 
-			// Use existing promise if already loading (prevents concurrent loads)
-			if (loadPromise) {
-				return loadPromise;
-			}
-
-			// Start new load
-			loadPromise = loadModel();
-			return loadPromise;
+			const id = crypto.randomUUID();
+			return new Promise<{ audio: Float32Array; sampleRate: number }>(
+				(resolve, reject) => {
+					pending.set(id, { resolve, reject });
+					worker.postMessage({ type: "generate", id, text, voice });
+				},
+			);
 		},
 
-		isLoading(): boolean {
-			return loading;
-		},
+		isLoading: () => loading,
+		isLoaded: () => ready,
 
-		isLoaded(): boolean {
-			return model !== null;
-		},
-
-		dispose(): void {
+		dispose() {
 			disposed = true;
-			model = null;
-			loadPromise = null;
+			ready = false;
 			loading = false;
+			for (const [, p] of pending) {
+				p.reject(new Error("Loader disposed"));
+			}
+			pending.clear();
+			worker.postMessage({ type: "dispose" });
+			worker.terminate();
 		},
 	};
 }
 
 /**
- * Get the singleton Kokoro model loader instance.
+ * Get the singleton Kokoro worker loader instance.
  */
-export function getKokoroLoader(): KokoroModelLoader {
+export function getKokoroLoader(): KokoroLoader {
 	if (!instance) {
-		instance = createModelLoader();
+		instance = createLoader();
 	}
 	return instance;
 }
