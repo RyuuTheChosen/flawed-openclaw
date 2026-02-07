@@ -9,7 +9,7 @@
   <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/node-%E2%89%A522-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node >= 22"></a>
   <a href="https://www.electronjs.org/"><img src="https://img.shields.io/badge/electron-33-47848F?style=flat-square&logo=electron&logoColor=white" alt="Electron 33"></a>
   <a href="https://threejs.org/"><img src="https://img.shields.io/badge/three.js-0.170-black?style=flat-square&logo=three.js&logoColor=white" alt="Three.js"></a>
-  <a href="https://www.npmjs.com/package/@openclaw/avatar-overlay"><img src="https://img.shields.io/npm/v/@openclaw/avatar-overlay?style=flat-square&logo=npm&logoColor=white&label=npm" alt="npm"></a>
+  <a href="https://www.npmjs.com/package/openclaw-avatar-overlay"><img src="https://img.shields.io/npm/v/openclaw-avatar-overlay?style=flat-square&logo=npm&logoColor=white&label=npm" alt="npm"></a>
 </p>
 
 <p align="center">
@@ -120,7 +120,7 @@ cursor lingers   →  curious    →  surprised 0.5, gaze 1.15×
 ### Plugin Install (existing OpenClaw users)
 
 ```bash
-openclaw plugins install @openclaw/avatar-overlay
+openclaw plugins install openclaw-avatar-overlay
 openclaw restart
 ```
 
