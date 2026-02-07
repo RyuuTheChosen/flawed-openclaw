@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc:*)",
+      "mcp__plugin_context7_context7__query-docs",
+      "mcp__plugin_context7_context7__resolve-library-id",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "WebSearch",
+      "Bash(gh api:*)",
+      "Bash(npm run build:*)",
+      "Bash(dir:*)",
+      "WebFetch(domain:docs.openclaw.ai)",
+      "Bash(git status:*)"
+    ]
+  }
+}
