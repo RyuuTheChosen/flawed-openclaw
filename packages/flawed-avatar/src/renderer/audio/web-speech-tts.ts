@@ -1,6 +1,6 @@
 /**
  * Web Speech API TTS service implementation.
- * Follows factory pattern consistent with other avatar-overlay modules.
+ * Follows factory pattern consistent with other flawed-avatar modules.
  */
 
 import type { TTSService, TTSEvents, TTSVoice, TTSEngineType } from "./types.js";

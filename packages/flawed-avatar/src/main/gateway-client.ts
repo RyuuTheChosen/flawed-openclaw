@@ -60,7 +60,7 @@ export function createGatewayClient(
 
 		// Track session changes - agent events contain the actual sessionKey
 		if (sessionKey && sessionKey !== currentSessionKey) {
-			console.log("avatar-overlay: setting currentSessionKey from agent event:", sessionKey);
+			console.log("flawed-avatar: setting currentSessionKey from agent event:", sessionKey);
 			currentSessionKey = sessionKey;
 			if (agentConfigs?.[sessionKey]?.vrmPath) {
 				onModelSwitch(agentConfigs[sessionKey].vrmPath!);
@@ -124,7 +124,7 @@ export function createGatewayClient(
 							const firstSession = sessions[0];
 							if (firstSession.key) {
 								currentSessionKey = firstSession.key;
-								console.log("avatar-overlay: auto-detected session from sessions.list:", currentSessionKey, "displayName:", firstSession.displayName);
+								console.log("flawed-avatar: auto-detected session from sessions.list:", currentSessionKey, "displayName:", firstSession.displayName);
 							}
 						}
 					}
@@ -139,20 +139,20 @@ export function createGatewayClient(
 							const agentId = firstAgent.id ?? "main";
 							const sessionKey = `agent:${agentId}:main`;
 							currentSessionKey = sessionKey;
-							console.log("avatar-overlay: fallback to agent main session:", currentSessionKey);
+							console.log("flawed-avatar: fallback to agent main session:", currentSessionKey);
 						}
 					}
 
 					// Connect success - request active sessions once
 					if (connectSent && !connectionSetupDone && !sessionsListRequestId && !agentsListRequestId) {
 						connectionSetupDone = true;
-						console.log("avatar-overlay: gateway connected successfully");
+						console.log("flawed-avatar: gateway connected successfully");
 						backoffMs = GATEWAY_RECONNECT_BASE_MS;
 						// Request recently active sessions
 						requestSessionsList();
 					}
 				} else {
-					console.error("avatar-overlay: gateway response error:", res.error?.message ?? "unknown");
+					console.error("flawed-avatar: gateway response error:", res.error?.message ?? "unknown");
 					// If sessions.list failed, fall back to agents.list
 					if (res.id === sessionsListRequestId) {
 						sessionsListRequestId = null;
@@ -163,7 +163,7 @@ export function createGatewayClient(
 				}
 			}
 		} catch (err) {
-			console.warn("avatar-overlay: failed to parse gateway message:", err);
+			console.warn("flawed-avatar: failed to parse gateway message:", err);
 		}
 	}
 
@@ -185,7 +185,7 @@ export function createGatewayClient(
 				maxProtocol: PROTOCOL_VERSION,
 				client: {
 					id: "gateway-client",
-					displayName: "Avatar Overlay",
+					displayName: "Flawed Avatar",
 					version: "0.1.0",
 					platform: process.platform,
 					mode: "backend",
@@ -223,7 +223,7 @@ export function createGatewayClient(
 				limit: 10,
 			},
 		};
-		console.log("avatar-overlay: requesting sessions list");
+		console.log("flawed-avatar: requesting sessions list");
 		ws.send(JSON.stringify(frame));
 	}
 
@@ -236,7 +236,7 @@ export function createGatewayClient(
 			method: "agents.list",
 			params: {},
 		};
-		console.log("avatar-overlay: requesting agents list (fallback)");
+		console.log("flawed-avatar: requesting agents list (fallback)");
 		ws.send(JSON.stringify(frame));
 	}
 
@@ -246,7 +246,7 @@ export function createGatewayClient(
 		ws = new WebSocket(gatewayUrl, { maxPayload: 25 * 1024 * 1024 });
 
 		ws.on("open", () => {
-			console.log("avatar-overlay: ws open, sending connect frame");
+			console.log("flawed-avatar: ws open, sending connect frame");
 			queueConnect();
 		});
 
@@ -256,13 +256,13 @@ export function createGatewayClient(
 		});
 
 		ws.on("close", (code, reason) => {
-			console.log(`avatar-overlay: ws closed (code=${code}, reason=${reason?.toString() ?? ""})`);
+			console.log(`flawed-avatar: ws closed (code=${code}, reason=${reason?.toString() ?? ""})`);
 			ws = null;
 			scheduleReconnect();
 		});
 
 		ws.on("error", (err) => {
-			console.error("avatar-overlay: gateway connection error:", err.message);
+			console.error("flawed-avatar: gateway connection error:", err.message);
 		});
 	}
 

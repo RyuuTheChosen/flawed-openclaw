@@ -12,7 +12,7 @@ let tray: Tray | null = null;
 export function createTray(wm: WindowManager): Tray {
 	const iconPath = path.join(__dirname, "..", "..", "..", "assets", "icon.png");
 	tray = new Tray(iconPath);
-	tray.setToolTip("OpenClaw Avatar");
+	tray.setToolTip("Flawed Avatar");
 
 	function rebuildMenu(): void {
 		const menu = Menu.buildFromTemplate([

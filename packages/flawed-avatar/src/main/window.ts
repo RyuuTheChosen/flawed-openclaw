@@ -39,6 +39,7 @@ import {
 	getLightingProfile,
 	getLightingCustom,
 	cleanupSettings,
+	migrateFileNames,
 	migrateLegacyFiles,
 	migrateV1ToV2,
 	migrateV2ToV3,
@@ -108,6 +109,7 @@ export function createOverlayWindow(): BrowserWindow {
 	// Run migrations once (deferred here because screen requires app ready)
 	if (!migrationsDone) {
 		migrationsDone = true;
+		migrateFileNames();
 		migrateLegacyFiles();
 		migrateV1ToV2();
 		migrateV2ToV3();

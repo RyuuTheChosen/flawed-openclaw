@@ -17,6 +17,33 @@ import {
 import { loadSettings, getSettingsStore } from "./settings-store.js";
 import { computeDisplayHash } from "../display-utils.js";
 
+/**
+ * Renames old avatar-overlay-*.json files to flawed-avatar-*.json
+ * so existing users' settings survive the package rename.
+ */
+export function migrateFileNames(): void {
+	const dir = getOpenclawDir();
+	const renames: [string, string][] = [
+		["avatar-overlay-settings.json", "flawed-avatar-settings.json"],
+		["avatar-overlay-position.json", "flawed-avatar-position.json"],
+		["avatar-overlay-camera.json", "flawed-avatar-camera.json"],
+		["avatar-overlay-chat.json", "flawed-avatar-chat.json"],
+	];
+
+	for (const [oldName, newName] of renames) {
+		const oldPath = path.join(dir, oldName);
+		const newPath = path.join(dir, newName);
+		try {
+			if (fs.existsSync(oldPath) && !fs.existsSync(newPath)) {
+				fs.renameSync(oldPath, newPath);
+				console.log(`[migrations] Renamed ${oldName} → ${newName}`);
+			}
+		} catch {
+			// Best-effort; next run will retry
+		}
+	}
+}
+
 interface LegacyPosition {
 	x: number;
 	y: number;
@@ -134,7 +161,7 @@ export function migrateLegacyFiles(): Settings | null {
  * Reads raw JSON to avoid schema validation rejecting the old format.
  */
 export function migrateV1ToV2(): void {
-	const filePath = path.join(getOpenclawDir(), "avatar-overlay-settings.json");
+	const filePath = path.join(getOpenclawDir(), "flawed-avatar-settings.json");
 	let raw: Record<string, unknown>;
 	try {
 		raw = JSON.parse(fs.readFileSync(filePath, "utf-8"));
@@ -175,7 +202,7 @@ export function migrateV1ToV2(): void {
  * Adds `scale` and `lightingProfile` fields with defaults.
  */
 export function migrateV2ToV3(): void {
-	const filePath = path.join(getOpenclawDir(), "avatar-overlay-settings.json");
+	const filePath = path.join(getOpenclawDir(), "flawed-avatar-settings.json");
 	let raw: Record<string, unknown>;
 	try {
 		raw = JSON.parse(fs.readFileSync(filePath, "utf-8"));

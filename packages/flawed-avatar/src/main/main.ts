@@ -133,7 +133,7 @@ app.whenReady().then(() => {
 	// Connect to gateway WebSocket for agent event streaming
 	const gatewayUrl = cliGatewayUrl ?? GATEWAY_URL_DEFAULT;
 	const authToken = resolveAuthToken();
-	console.log(`avatar-overlay: connecting to ${gatewayUrl} (auth=${authToken ? "token" : "none"})`);
+	console.log(`flawed-avatar: connecting to ${gatewayUrl} (auth=${authToken ? "token" : "none"})`);
 	const gw = createGatewayClient(
 		gatewayUrl,
 		(state) => wm.sendAgentState(state),
@@ -144,14 +144,14 @@ app.whenReady().then(() => {
 
 	// IPC: send chat message to active agent
 	ipcMain.on(IPC.SEND_CHAT, (_event, text: unknown) => {
-		console.log("avatar-overlay: SEND_CHAT received:", text);
+		console.log("flawed-avatar: SEND_CHAT received:", text);
 		if (typeof text !== "string" || text.trim().length === 0 || text.length > CHAT_INPUT_MAX_LENGTH) {
-			console.log("avatar-overlay: SEND_CHAT rejected (validation failed)");
+			console.log("flawed-avatar: SEND_CHAT rejected (validation failed)");
 			return;
 		}
 		const agentId = gw.getCurrentAgentId();
-		console.log("avatar-overlay: current agentId:", agentId);
-		console.log("avatar-overlay: sending chat to gateway");
+		console.log("flawed-avatar: current agentId:", agentId);
+		console.log("flawed-avatar: sending chat to gateway");
 		gw.sendChat(text.trim(), agentId);
 	});
 

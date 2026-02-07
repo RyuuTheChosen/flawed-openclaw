@@ -1,280 +1,217 @@
 <p align="center">
-  <img src="README-header.png" alt="Flawed OpenClaw" width="600">
+  <img src="assets/icon.png" width="80" alt="flawed-avatar icon" />
 </p>
 
-<h3 align="center">a VRM avatar that reacts to your AI assistant in real-time</h3>
+<h1 align="center">flawed-avatar</h1>
 
 <p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT License"></a>
-  <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/node-%E2%89%A522-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node >= 22"></a>
-  <a href="https://www.electronjs.org/"><img src="https://img.shields.io/badge/electron-33-47848F?style=flat-square&logo=electron&logoColor=white" alt="Electron 33"></a>
-  <a href="https://threejs.org/"><img src="https://img.shields.io/badge/three.js-0.170-black?style=flat-square&logo=three.js&logoColor=white" alt="Three.js"></a>
-  <a href="https://www.npmjs.com/package/openclaw-avatar-overlay"><img src="https://img.shields.io/npm/v/openclaw-avatar-overlay?style=flat-square&logo=npm&logoColor=white&label=npm" alt="npm"></a>
+  A 3D avatar overlay that gives your <a href="https://github.com/nichochar/open-claw">OpenClaw</a> agent a face.<br/>
+  Real-time expressions, lip-sync, text-to-speech, and eye tracking — all running locally.
 </p>
 
 <p align="center">
-  <a href="#what-is-this">About</a> •
-  <a href="#features">Features</a> •
-  <a href="#quick-start">Quick Start</a> •
-  <a href="#configuration">Configuration</a> •
-  <a href="#architecture">Architecture</a> •
-  <a href="#tech-stack">Tech Stack</a>
+  <a href="https://www.npmjs.com/package/flawed-avatar"><img src="https://img.shields.io/npm/v/flawed-avatar?color=cb3837&label=npm" alt="npm version" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/RyuuTheChosen/flawed-openclaw?color=blue" alt="MIT License" /></a>
+  <a href="https://github.com/RyuuTheChosen/flawed-openclaw"><img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey" alt="Platforms" /></a>
 </p>
 
 ---
 
-## What is this?
+## What it does
 
-**Avatar Overlay** is a transparent Electron window that renders a VRM avatar using Three.js. It connects to your [OpenClaw](https://github.com/openclaw/openclaw) assistant over WebSocket and translates agent lifecycle events into animations, expressions, lip sync, and speech — in real-time.
+The avatar sits in a transparent, always-on-top overlay and reacts to your agent in real time:
 
-This repo is a fork of [openclaw/openclaw](https://github.com/openclaw/openclaw). All upstream features (channels, gateway, skills, voice, canvas) work as documented. The avatar overlay is the primary addition.
+| Agent state | Avatar behavior |
+|---|---|
+| **Idle** | Breathing animation, relaxed posture, ambient eye saccades |
+| **Thinking** | Surprised expression, amplified head sway |
+| **Speaking** | Happy expression, lip-sync driven by TTS audio or text |
+| **Working** | Relaxed expression, subtle working tilt, head nod |
 
----
+It connects to the OpenClaw gateway over WebSocket and listens for agent lifecycle events — no polling, no config wiring.
 
 ## Features
 
-### Animation System
+**Avatar & Animation**
+- VRM model rendering via Three.js and [@pixiv/three-vrm](https://github.com/pixiv/three-vrm)
+- Compound facial expressions with cubic-eased blend shape transitions
+- Procedural breathing, head sway, speaking nod, and working tilt
+- FBX animation clips per phase (idle, thinking, speaking, working) with Mixamo retargeting
+- Spring bone physics for hair and accessories
+- Image-based lighting (IBL) with spherical harmonics
 
-| Feature | Details |
-|---------|---------|
-| **4-state FSM** | idle, thinking, speaking, working — driven by agent lifecycle events |
-| **Mixamo FBX clips** | Crossfade transitions (0.5s phase change, 0.3s variety rotation), variety rotation per state |
-| **Procedural fallback** | Breathing (1.8 Hz), head sway (0.5/0.3 Hz X/Y), speaking nod, working tilt |
-| **Blinking** | Procedural blink every 2–6s (60ms close, 100ms open) |
+**Lip-sync & TTS**
+- Audio-driven viseme blending via [wLipSync](https://github.com/hecomi/uLipSync)
+- Local neural TTS via [Kokoro](https://github.com/hexgrad/kokoro) (11 voices, offline ONNX)
+- Browser Web Speech API as a lightweight alternative
+- Text-based lip-sync fallback when TTS is off
 
-### Expressions
+**Eye & Gaze**
+- Eyes track your cursor across the entire screen
+- Micro-saccades with configurable yaw/pitch range and hold durations
+- Hover awareness — avatar reacts when you mouse over it
 
-| Feature | Details |
-|---------|---------|
-| **6 compound-blend expressions** | happy (happy + aa), angry (angry + ee), surprised (surprised + aa), sad, relaxed, neutral |
-| **Cubic easing** | Per-emotion durations — surprised 0.1s, angry 0.25s, happy 0.3s, sad 0.4s, relaxed 0.5s |
-| **Hover overlays** | 4-state awareness FSM: unaware → noticing (surprised 0.3) → attentive (happy 0.4) → curious (surprised 0.5) |
+**Desktop Integration**
+- Transparent, click-through Electron overlay (mouse passes through empty pixels)
+- Native drag to reposition
+- Scroll-wheel zoom (0.5x to 6.0x)
+- System tray with show/hide, model picker, and settings
+- Chat window to message the active agent directly
+- Settings panel for scale, lighting, TTS engine, and voice selection
+- All preferences persisted between sessions
 
-### Lip Sync
+**Multi-agent**
+- Per-agent VRM model assignment (different agents get different avatars)
+- Automatic model switching when the active agent changes
 
-| Feature | Details |
-|---------|---------|
-| **wLipSync (real-time)** | MFCC audio analysis → winner/runner viseme selection → exponential smoothing |
-| **Phoneme-mapped** | Kokoro TTS word boundaries drive a viseme frame queue |
-| **Text-driven fallback** | Character-to-viseme mapping at 50ms/char |
-| **Max-merge blending** | Lip sync and expressions coexist via `Math.max()` — no collision |
+## Install
 
-### Eye System
-
-| Feature | Details |
-|---------|---------|
-| **Cursor-tracking gaze** | Eye (±20° yaw, ±15° pitch, fast) + head (±25° yaw, ±15° pitch, slow) with 50px deadzone |
-| **Saccades** | Weighted probability intervals (800ms–4.4s), 3-phase cycle (move → hold → return), ±5° yaw / ±3.75° pitch |
-| **Hover-aware multiplier** | Gaze intensity scales with awareness state (1.0× → 1.2×) |
-| **VRM 0.x / 1.0** | Automatic pitch inversion for 0.x models |
-
-### Text-to-Speech
-
-| Feature | Details |
-|---------|---------|
-| **Kokoro** | Offline neural TTS via kokoro-js — 11 voices (5 American female, 2 American male, 2 British female, 2 British male) |
-| **Web Speech API** | System voices, zero-download fallback |
-| **Runtime switching** | Change engine and voice without restart; auto-fallback if Kokoro init fails |
-
-### Rendering
-
-| Feature | Details |
-|---------|---------|
-| **IBL shader injection** | SH3 coefficients computed from scene lights, injected into MToon vertex/fragment shaders |
-| **Pixel-sampled click-through** | Transparent regions pass input to windows below |
-| **Spring bone physics** | Hair, clothes, accessories via `@pixiv/three-vrm-springbone` |
-| **VRM 0.x and 1.0** | Full support via `@pixiv/three-vrm 3.x` |
-
-### Window
-
-| Feature | Details |
-|---------|---------|
-| **Native drag** | Main-process cursor polling at 16ms — no `-webkit-app-region` hacks |
-| **Display-aware bounds** | Clamps to `workArea` on move and display hotplug |
-| **Scroll-wheel zoom** | 0.5×–6.0× range, 0.2× step, presets: head (0.6×), upper body (1.5×), full body (4.0×) |
-| **Opacity control** | 0.3–1.0 range with idle fade timeout |
-| **Persistence** | Window position, zoom, opacity, and settings saved between sessions |
-
----
-
-## State Visualization
-
-The avatar maps agent lifecycle events to visual states:
-
-```
-lifecycle.start  →  thinking   →  surprised expression, thinking animation, 2.5× head sway
-assistant.text   →  speaking   →  happy expression, lip sync active, speaking nod
-tool.*           →  working    →  relaxed expression, working animation, head tilt
-lifecycle.end    →  idle       →  neutral expression, idle animation, base sway
-
-                    hover awareness (layered on top of any state)
-cursor near      →  noticing   →  surprised 0.3, gaze 1.1×
-cursor stays     →  attentive  →  happy 0.4, gaze 1.2×
-cursor lingers   →  curious    →  surprised 0.5, gaze 1.15×
-```
-
----
-
-## Quick Start
-
-### Plugin Install (existing OpenClaw users)
+### macOS / Linux
 
 ```bash
-openclaw plugins install openclaw-avatar-overlay
-openclaw restart
+openclaw plugins install flawed-avatar
+openclaw plugins enable flawed-avatar
 ```
 
-The avatar spawns when the gateway starts.
+### Windows
 
-### Full Clone + Build
-
-**Prerequisites:** Node >= 22, pnpm, Git
+> `openclaw plugins install <npm-package>` is currently broken on Windows + Node.js v22+ due to an upstream OpenClaw bug. Use the tarball workaround:
 
 ```bash
-git clone https://github.com/RyuuTheChosen/flawed-openclaw.git
-cd flawed-openclaw
-pnpm install
-pnpm build
-pnpm openclaw onboard
+npm pack flawed-avatar
+openclaw plugins install ./flawed-avatar-0.2.1.tgz
+cd %USERPROFILE%\.openclaw\extensions\flawed-avatar
+npm install --omit=dev
+openclaw plugins enable flawed-avatar
 ```
 
-### Commands
-
-| Command | Action |
-|---------|--------|
-| `/avatar_show` | Show the overlay |
-| `/avatar_hide` | Hide the overlay |
-
-### Development
+Then restart the gateway:
 
 ```bash
-cd packages/avatar-overlay
-pnpm dev    # Build + launch standalone
+openclaw gateway restart
 ```
 
----
+The avatar overlay will appear automatically.
 
 ## Configuration
 
-Plugin config lives in your OpenClaw config file:
+Add plugin settings to `~/.openclaw/openclaw.json`:
 
-```yaml
-# ~/.openclaw/config
-plugins:
-  entries:
-    avatar-overlay:
-      config:
-        autoStart: true                        # spawn on gateway start (default: true)
-        vrmPath: "/path/to/your/model.vrm"     # default VRM model
-        gatewayUrl: "ws://127.0.0.1:18789"     # gateway WebSocket (default)
-        agents:                                 # per-agent VRM overrides
-          my-coding-agent:
-            vrmPath: "/path/to/other/model.vrm"
+```json
+{
+  "plugins": {
+    "entries": {
+      "flawed-avatar": {
+        "enabled": true,
+        "config": {
+          "autoStart": true,
+          "vrmPath": "/path/to/custom-model.vrm",
+          "gatewayUrl": "ws://127.0.0.1:18789",
+          "agents": {
+            "agent:researcher:main": { "vrmPath": "/models/researcher.vrm" },
+            "agent:coder:main": { "vrmPath": "/models/coder.vrm" }
+          }
+        }
+      }
+    }
+  }
+}
 ```
 
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `autoStart` | boolean | `true` | Spawn overlay when gateway starts |
-| `vrmPath` | string | built-in | Path to default VRM model |
-| `gatewayUrl` | string | `ws://127.0.0.1:18789` | Gateway WebSocket URL |
-| `agents` | object | — | Per-agent VRM path overrides |
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `autoStart` | `boolean` | `true` | Launch overlay when OpenClaw starts |
+| `vrmPath` | `string` | bundled model | Path to a default VRM model |
+| `gatewayUrl` | `string` | `ws://127.0.0.1:18789` | OpenClaw gateway WebSocket URL |
+| `agents` | `object` | — | Per-agent VRM overrides keyed by session key |
 
----
+## Controls
+
+| Input | Action |
+|---|---|
+| **Scroll wheel** | Zoom in/out |
+| **Drag handle** | Reposition the overlay |
+| Chat icon | Toggle chat window |
+| Speaker icon | Toggle TTS |
+| Gear icon | Open settings panel |
+| Tray icon | Show/hide, change model, quit |
+
+## Settings panel
+
+- **Scale** — 0.5x to 2.0x avatar size
+- **Lighting** — Studio, Warm, Cool, Neutral, or Custom profiles
+- **TTS Engine** — Web Speech (browser) or Kokoro (local neural)
+- **TTS Voice** — 11 Kokoro voices (American/British, male/female) or system voices
 
 ## Architecture
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                        Avatar Overlay                             │
-├──────────────────────────────────────────────────────────────────┤
-│                                                                   │
-│  Main Process                    Renderer Process                 │
-│  ┌────────────────────┐          ┌──────────────────────────┐     │
-│  │ Gateway Client (WS) │─events─►│ State Machine (FSM)      │     │
-│  │ Window Manager      │         │   ├─ Animator             │     │
-│  │ Native Drag         │         │   │   ├─ FBX Clips        │     │
-│  │ Display Bounds      │         │   │   ├─ Procedural       │     │
-│  │ Click-Through       │         │   │   └─ Blinking         │     │
-│  │ Zoom / Opacity      │         │   ├─ Expressions          │     │
-│  │ Persistence         │         │   │   └─ Cubic Easing     │     │
-│  └────────────────────┘         │   ├─ Lip Sync             │     │
-│                                  │   │   ├─ wLipSync (MFCC)  │     │
-│                                  │   │   ├─ Phoneme Queue    │     │
-│                                  │   │   └─ Text Fallback    │     │
-│                                  │   ├─ Eye Gaze + Saccades  │     │
-│                                  │   ├─ Hover Awareness      │     │
-│                                  │   └─ TTS (Kokoro / Web)   │     │
-│                                  │                            │     │
-│                                  │ Three.js Scene             │     │
-│                                  │   ├─ VRM Model + Bones     │     │
-│                                  │   ├─ IBL Shader Injection  │     │
-│                                  │   └─ Spring Bone Physics   │     │
-│                                  └──────────────────────────┘     │
-│                                                                   │
-│  Animation Loop (each frame):                                     │
-│  clips/procedural → blink → saccades → eye gaze → hover          │
-│  → expressions → lip sync → spring bones                          │
-│                                                                   │
-└──────────────────────────────────────────────────────────────────┘
-              ▲
-              │ WebSocket
-              ▼
-     ┌─────────────────┐
-     │  OpenClaw Gateway │
-     │  (agent events)   │
-     └─────────────────┘
+Plugin Service (Node.js)
+  │
+  ├── Spawns Electron child process
+  │     │
+  │     ├── Main Process
+  │     │     ├── Gateway WebSocket client (agent events)
+  │     │     ├── Window manager (avatar + chat + settings)
+  │     │     ├── System tray
+  │     │     └── Persistence (settings, chat history)
+  │     │
+  │     └── Renderer (Three.js)
+  │           ├── VRM loader + spring bones + IBL
+  │           ├── Animator (expressions, breathing, gaze, lip-sync)
+  │           └── Audio pipeline (Kokoro TTS → wLipSync → visemes)
+  │
+  └── Stdin IPC (show/hide/shutdown/model-switch)
 ```
 
----
+## Development
 
-## Tech Stack
+```bash
+git clone https://github.com/RyuuTheChosen/flawed-openclaw.git
+cd flawed-openclaw
+npm install
+npm run dev     # build + launch Electron
+```
 
-### Avatar Overlay
+| Script | Description |
+|---|---|
+| `npm run build` | TypeScript + Rolldown bundle + copy renderer assets |
+| `npm run dev` | Build and launch in one step |
+| `npm run start` | Launch the last build without recompiling |
 
-| Component | Technology | Version |
-|-----------|------------|---------|
-| Runtime | Electron | ~33.0 |
-| 3D Engine | Three.js | ~0.170 |
-| VRM | @pixiv/three-vrm | ~3.3 |
-| Spring Bones | @pixiv/three-vrm-springbone | ~3.3 |
-| TTS | kokoro-js | ^1.2 |
-| Lip Sync | wLipSync | ^1.3 |
-| Bundler | Rolldown | 1.0.0-rc.2 |
+### Project structure
 
-### Core Platform
+```
+index.ts                        Plugin registration (OpenClaw SDK)
+src/service.ts                  Electron process lifecycle manager
+src/main/
+  main.ts                       Electron entry point
+  gateway-client.ts             WebSocket client (protocol v3)
+  window-manager.ts             Multi-window coordination
+  tray.ts                       System tray menu
+  persistence/                  JSON file store with migrations
+src/renderer/
+  renderer.ts                   Boot sequence and render loop
+  avatar/                       VRM, animator, expressions, eye gaze, spring bones
+  audio/                        TTS engines, lip-sync, phoneme mapping
+  ui/                           Chat bubble, typing indicator
+  chat-window/                  Chat panel renderer
+  settings-window/              Settings panel renderer
+src/shared/
+  config.ts                     All tunable constants
+  types.ts                      AgentPhase, AgentState
+  ipc-channels.ts               Electron IPC channel definitions
+assets/
+  models/                       Bundled VRM avatars
+  animations/{idle,thinking,speaking,working}/   FBX motion clips
+```
 
-| Component | Technology |
-|-----------|------------|
-| Runtime | Node.js >= 22 |
-| Language | TypeScript 5.9 |
-| Package Manager | pnpm 10 |
-| Linter | oxlint |
-| Formatter | oxfmt |
-| Test | Vitest |
+## Requirements
 
----
-
-## Upstream
-
-Built on [**openclaw/openclaw**](https://github.com/openclaw/openclaw). All upstream features work as documented.
-
-- **Upstream:** [github.com/openclaw/openclaw](https://github.com/openclaw/openclaw)
-- **Docs:** [docs.openclaw.ai](https://docs.openclaw.ai)
-
----
-
-## Fork Activity
-
-<a href="https://star-history.com/#RyuuTheChosen/flawed-openclaw&Date">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=RyuuTheChosen/flawed-openclaw&type=Date&theme=dark" />
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=RyuuTheChosen/flawed-openclaw&type=Date" />
-    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=RyuuTheChosen/flawed-openclaw&type=Date" width="600" />
-  </picture>
-</a>
-
----
+- Node.js >= 18
+- OpenClaw (peer dependency)
+- Desktop environment with display server (auto-skips on headless Linux)
 
 ## License
 
-MIT — same as upstream. See [LICENSE](LICENSE).
+[MIT](LICENSE)

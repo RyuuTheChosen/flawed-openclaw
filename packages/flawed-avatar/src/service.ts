@@ -59,14 +59,14 @@ export function createAvatarOverlayService(api: OpenClawPluginApi) {
 		child.stdout?.on("data", (data: Buffer) => {
 			const lines = data.toString().split("\n").filter(Boolean);
 			for (const line of lines) {
-				ctx.logger.info(`avatar-overlay: ${line}`);
+				ctx.logger.info(`flawed-avatar: ${line}`);
 			}
 		});
 
 		child.stderr?.on("data", (data: Buffer) => {
 			const lines = data.toString().split("\n").filter(Boolean);
 			for (const line of lines) {
-				ctx.logger.warn(`avatar-overlay: ${line}`);
+				ctx.logger.warn(`flawed-avatar: ${line}`);
 			}
 		});
 
@@ -74,7 +74,7 @@ export function createAvatarOverlayService(api: OpenClawPluginApi) {
 			child = null;
 			if (stopped) return;
 
-			ctx.logger.warn(`avatar-overlay: exited (code=${code}, signal=${signal}), scheduling restart`);
+			ctx.logger.warn(`flawed-avatar: exited (code=${code}, signal=${signal}), scheduling restart`);
 
 			// Reset backoff if process ran long enough
 			if (startedAt && Date.now() - startedAt >= RESTART_RESET_MS) {
@@ -83,7 +83,7 @@ export function createAvatarOverlayService(api: OpenClawPluginApi) {
 
 			restartTimer = setTimeout(() => {
 				if (!stopped) {
-					ctx.logger.info(`avatar-overlay: restarting (backoff=${restartBackoffMs}ms)`);
+					ctx.logger.info(`flawed-avatar: restarting (backoff=${restartBackoffMs}ms)`);
 					spawnElectron(ctx);
 				}
 			}, restartBackoffMs);
@@ -91,24 +91,24 @@ export function createAvatarOverlayService(api: OpenClawPluginApi) {
 			restartBackoffMs = Math.min(restartBackoffMs * 2, RESTART_MAX_MS);
 		});
 
-		ctx.logger.info("avatar-overlay: started");
+		ctx.logger.info("flawed-avatar: started");
 	}
 
 	const service: OpenClawPluginService & { send: (msg: StdinMessage) => void } = {
-		id: "avatar-overlay",
+		id: "flawed-avatar",
 
 		start(ctx: OpenClawPluginServiceContext): void {
 			stopped = false;
 
 			const config = api.pluginConfig as Record<string, unknown> | undefined;
 			if (config?.autoStart === false) {
-				ctx.logger.info("avatar-overlay: autoStart disabled, skipping");
+				ctx.logger.info("flawed-avatar: autoStart disabled, skipping");
 				return;
 			}
 
 			// Skip on headless Linux
 			if (process.platform === "linux" && !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) {
-				ctx.logger.info("avatar-overlay: no display available, skipping");
+				ctx.logger.info("flawed-avatar: no display available, skipping");
 				return;
 			}
 
@@ -135,7 +135,7 @@ export function createAvatarOverlayService(api: OpenClawPluginApi) {
 
 				const forceKillTimer = setTimeout(() => {
 					if (proc.exitCode === null) {
-						ctx.logger.warn("avatar-overlay: force-killing after graceful timeout");
+						ctx.logger.warn("flawed-avatar: force-killing after graceful timeout");
 						proc.kill("SIGKILL");
 					}
 				}, 5_000);
@@ -143,7 +143,7 @@ export function createAvatarOverlayService(api: OpenClawPluginApi) {
 				proc.once("exit", () => {
 					clearTimeout(forceKillTimer);
 					child = null;
-					ctx.logger.info("avatar-overlay: stopped");
+					ctx.logger.info("flawed-avatar: stopped");
 					resolve();
 				});
 

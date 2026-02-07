@@ -2,12 +2,12 @@ export const WINDOW_WIDTH = 300;
 export const WINDOW_HEIGHT = 500;
 
 // === Legacy File Names (for migration) ===
-export const WINDOW_POSITION_FILE = "avatar-overlay-position.json";
-export const CAMERA_ZOOM_FILE = "avatar-overlay-camera.json";
+export const WINDOW_POSITION_FILE = "flawed-avatar-position.json";
+export const CAMERA_ZOOM_FILE = "flawed-avatar-camera.json";
 
 // === Persistence Files ===
-export const SETTINGS_FILE = "avatar-overlay-settings.json";
-export const CHAT_HISTORY_FILE = "avatar-overlay-chat.json";
+export const SETTINGS_FILE = "flawed-avatar-settings.json";
+export const CHAT_HISTORY_FILE = "flawed-avatar-chat.json";
 
 // === Camera Settings ===
 export const CAMERA_ZOOM_MIN = 0.5;

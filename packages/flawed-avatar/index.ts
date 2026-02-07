@@ -2,15 +2,15 @@ import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { createAvatarOverlayService } from "./src/service.js";
 
 const plugin = {
-	id: "avatar-overlay",
-	name: "Avatar Overlay",
+	id: "flawed-avatar",
+	name: "Flawed Avatar",
 	description: "3D avatar overlay that gives your agent a face",
 	register(api: OpenClawPluginApi) {
 		const service = createAvatarOverlayService(api);
 		api.registerService(service);
 
 		api.registerCommand({
-			name: "avatar_show",
+			name: "flawed_show",
 			description: "Show the avatar overlay window",
 			handler: () => {
 				service.send({ type: "show" });
@@ -19,7 +19,7 @@ const plugin = {
 		});
 
 		api.registerCommand({
-			name: "avatar_hide",
+			name: "flawed_hide",
 			description: "Hide the avatar overlay window",
 			handler: () => {
 				service.send({ type: "hide" });
