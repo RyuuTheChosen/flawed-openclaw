@@ -86,7 +86,42 @@ Files **not** published: `node_modules/`, `rolldown.config.mjs`, `tsconfig*.json
    git push origin main --tags
    ```
 
-2. **Verify** the published package:
+2. **Create a GitHub release** with the tarball attached so Windows users can download directly:
+
+   ```bash
+   # Build the tarball
+   npm pack
+
+   # Create the release (edit the notes as needed)
+   gh release create v<version> ./flawed-avatar-<version>.tgz \
+     --repo RyuuTheChosen/flawed-openclaw \
+     --title "flawed-avatar v<version>" \
+     --notes "$(cat <<NOTES
+   ## Changes
+
+   - (list changes here)
+
+   ## Install
+
+   **macOS / Linux:**
+   \`\`\`bash
+   openclaw plugins install flawed-avatar
+   \`\`\`
+
+   **Windows (Node.js v22+):**
+   Download \`flawed-avatar-<version>.tgz\` from this release, then:
+   \`\`\`bash
+   openclaw plugins install ./flawed-avatar-<version>.tgz
+   cd %USERPROFILE%\.openclaw\extensions\flawed-avatar
+   npm install --omit=dev
+   \`\`\`
+   NOTES
+   )"
+   ```
+
+   This gives Windows users a direct download link without needing `npm pack` locally.
+
+3. **Verify** the published package:
 
    ```bash
    npm info flawed-avatar
