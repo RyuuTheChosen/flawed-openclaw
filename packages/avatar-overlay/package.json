@@ -2,6 +2,9 @@
   "name": "@openclaw/avatar-overlay",
   "version": "0.2.0",
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "dist/main/main/main.js",
   "scripts": {
     "dev": "tsc --build && rolldown --config rolldown.config.mjs && node scripts/copy-renderer-html.mjs && electron dist/main/main/main.js",
