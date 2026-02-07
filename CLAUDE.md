@@ -18,3 +18,12 @@ npm install
 npm run build   # tsc + rolldown + copy-renderer-html
 npm run dev     # build + launch electron
 ```
+
+## Publishing
+
+After any version bump, update **all** version references before committing:
+
+- `README.md` — Windows install tarball filename (e.g. `flawed-avatar-0.2.2.tgz`)
+- `docs/PUBLISHING.md` — semver examples and tarball filename in the install section
+
+See `docs/PUBLISHING.md` for the full publish workflow.

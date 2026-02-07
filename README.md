@@ -79,7 +79,7 @@ openclaw plugins enable flawed-avatar
 
 ```bash
 npm pack flawed-avatar
-openclaw plugins install ./flawed-avatar-0.2.1.tgz
+openclaw plugins install ./flawed-avatar-0.2.2.tgz
 cd %USERPROFILE%\.openclaw\extensions\flawed-avatar
 npm install --omit=dev
 openclaw plugins enable flawed-avatar
@@ -186,6 +186,7 @@ index.ts                        Plugin registration (OpenClaw SDK)
 src/service.ts                  Electron process lifecycle manager
 src/main/
   main.ts                       Electron entry point
+  device-identity.ts            Device auth for gateway handshake
   gateway-client.ts             WebSocket client (protocol v3)
   window-manager.ts             Multi-window coordination
   tray.ts                       System tray menu

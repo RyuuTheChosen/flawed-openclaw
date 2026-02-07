@@ -9,9 +9,9 @@
 ## Pre-publish checklist
 
 1. **Bump the version** in `package.json` following semver:
-   - Patch (`0.2.1` -> `0.2.2`): bug fixes
-   - Minor (`0.2.1` -> `0.3.0`): new features, backward-compatible
-   - Major (`0.2.1` -> `1.0.0`): breaking changes
+   - Patch (`0.2.2` -> `0.2.3`): bug fixes
+   - Minor (`0.2.2` -> `0.3.0`): new features, backward-compatible
+   - Major (`0.2.2` -> `1.0.0`): breaking changes
 
    ```bash
    npm version patch   # or minor / major
@@ -137,7 +137,7 @@ On Windows with Node.js v22+, `openclaw plugins install` fails due to an upstrea
 
 ```bash
 npm pack flawed-avatar
-openclaw plugins install ./flawed-avatar-0.2.1.tgz
+openclaw plugins install ./flawed-avatar-0.2.2.tgz
 ```
 
 The extraction succeeds but the automatic `npm install` step will crash. Finish the install manually:
@@ -147,7 +147,7 @@ cd %USERPROFILE%\.openclaw\extensions\flawed-avatar
 npm install --omit=dev
 ```
 
-Replace `0.2.1` with the actual version number.
+Replace `0.2.2` with the actual version number.
 
 ### Install via OpenClaw CLI (npm)
 
