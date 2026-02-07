@@ -8,3 +8,5 @@ coverage/
 .local/
 .vscode/
 *.tgz
+*.wav
+debug.md
