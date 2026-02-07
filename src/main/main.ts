@@ -7,6 +7,7 @@ import { createWindowManager } from "./window-manager.js";
 import { createTray } from "./tray.js";
 import { createStdinListener, type StdinCommand } from "./stdin-listener.js";
 import { createGatewayClient } from "./gateway-client.js";
+import { loadDeviceIdentity } from "./device-identity.js";
 import { IPC } from "../shared/ipc-channels.js";
 import { GATEWAY_URL_DEFAULT, CHAT_INPUT_MAX_LENGTH } from "../shared/config.js";
 import { getVrmModelPath, saveVrmModelPath } from "./persistence/index.js";
@@ -133,13 +134,15 @@ app.whenReady().then(() => {
 	// Connect to gateway WebSocket for agent event streaming
 	const gatewayUrl = cliGatewayUrl ?? GATEWAY_URL_DEFAULT;
 	const authToken = resolveAuthToken();
-	console.log(`flawed-avatar: connecting to ${gatewayUrl} (auth=${authToken ? "token" : "none"})`);
+	const deviceIdentity = loadDeviceIdentity();
+	console.log(`flawed-avatar: connecting to ${gatewayUrl} (auth=${authToken ? "token" : "none"}, device=${deviceIdentity ? deviceIdentity.deviceId.slice(0, 8) + "…" : "none"})`);
 	const gw = createGatewayClient(
 		gatewayUrl,
 		(state) => wm.sendAgentState(state),
 		(vrmPath) => wm.sendToAvatar(IPC.VRM_MODEL_CHANGED, vrmPath),
 		agentConfigs,
 		authToken,
+		deviceIdentity,
 	);
 
 	// IPC: send chat message to active agent

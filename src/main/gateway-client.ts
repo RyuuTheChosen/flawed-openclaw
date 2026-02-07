@@ -5,6 +5,8 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { GATEWAY_RECONNECT_BASE_MS, GATEWAY_RECONNECT_MAX_MS } from "../shared/config.js";
 import type { AgentState } from "../shared/types.js";
+import type { DeviceIdentity } from "./device-identity.js";
+import { loadStoredAuthToken, buildAuthPayload, signPayload, publicKeyToBase64Url } from "./device-identity.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -54,6 +56,7 @@ export function createGatewayClient(
 	onModelSwitch: (vrmPath: string) => void,
 	agentConfigs?: Record<string, { vrmPath?: string }>,
 	authToken?: string,
+	deviceIdentity?: DeviceIdentity | null,
 ): { destroy: () => void; sendChat: (text: string, sessionKey: string | null) => void; getCurrentAgentId: () => string | null } {
 	let ws: WebSocket | null = null;
 	let destroyed = false;
@@ -186,6 +189,36 @@ export function createGatewayClient(
 			connectTimer = null;
 		}
 
+		const role = "operator";
+		const scopes = ["operator.admin"];
+		const storedToken = deviceIdentity ? loadStoredAuthToken(deviceIdentity.deviceId, role) : null;
+		const effectiveToken = storedToken ?? authToken ?? undefined;
+		const auth = effectiveToken ? { token: effectiveToken } : undefined;
+
+		const nonce = connectNonce ?? undefined;
+		const signedAtMs = Date.now();
+		const device = (() => {
+			if (!deviceIdentity) return undefined;
+			const payload = buildAuthPayload({
+				deviceId: deviceIdentity.deviceId,
+				clientId: "gateway-client",
+				clientMode: "backend",
+				role,
+				scopes,
+				signedAtMs,
+				token: effectiveToken ?? null,
+				nonce,
+			});
+			const signature = signPayload(deviceIdentity.privateKeyPem, payload);
+			return {
+				id: deviceIdentity.deviceId,
+				publicKey: publicKeyToBase64Url(deviceIdentity.publicKeyPem),
+				signature,
+				signedAt: signedAtMs,
+				nonce,
+			};
+		})();
+
 		const frame = {
 			type: "req",
 			id: randomUUID(),
@@ -201,9 +234,10 @@ export function createGatewayClient(
 					mode: "backend",
 				},
 				caps: [],
-				role: "operator",
-				scopes: ["operator.admin"],
-				auth: authToken ? { token: authToken } : {},
+				role,
+				scopes,
+				auth,
+				device,
 			},
 		};
 
