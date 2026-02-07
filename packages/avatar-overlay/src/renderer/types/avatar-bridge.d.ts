@@ -26,6 +26,7 @@ interface AvatarBridge {
 	onVrmModelChanged(callback: (path: string) => void): void;
 	getVrmPath(): Promise<string>;
 	showContextMenu(): void;
+	openSettings(): void;
 	getCameraZoom(): Promise<number>;
 	saveCameraZoom(zoom: number): void;
 	onCameraZoomChanged(callback: (zoom: number) => void): void;
@@ -67,6 +68,10 @@ interface AvatarBridge {
 	getTtsVoice(): Promise<string>;
 	setTtsVoice(voice: string): void;
 	onTtsVoiceChanged(callback: (voice: string) => void): void;
+
+	// Scale
+	getScale(): Promise<number>;
+	onScaleChanged(callback: (scale: number) => void): void;
 
 	// Cursor tracking
 	startCursorTracking(): void;

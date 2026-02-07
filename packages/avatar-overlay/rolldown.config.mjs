@@ -22,4 +22,14 @@ export default defineConfig([
 			extensions: [".js", ".mjs"],
 		},
 	},
+	{
+		input: "dist/renderer/renderer/settings-window/settings-renderer.js",
+		output: {
+			file: "dist/settings-renderer-bundle/settings-renderer.js",
+			format: "esm",
+		},
+		resolve: {
+			extensions: [".js", ".mjs"],
+		},
+	},
 ]);

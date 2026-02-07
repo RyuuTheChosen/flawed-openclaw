@@ -8,9 +8,12 @@ import {
 	CHAT_WINDOW_WIDTH,
 	CHAT_WINDOW_HEIGHT,
 	CHAT_WINDOW_GAP,
+	SETTINGS_WINDOW_WIDTH,
+	SETTINGS_WINDOW_HEIGHT,
 } from "../shared/config.js";
 import type { AgentState } from "../shared/types.js";
 import { clampBoundsToWorkArea } from "./display-utils.js";
+import { setSettingsBroadcastTarget } from "./settings-broadcast.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,16 +21,21 @@ const __dirname = path.dirname(__filename);
 export interface WindowManager {
 	avatarWin: BrowserWindow;
 	chatWin: BrowserWindow;
+	settingsWin: BrowserWindow | null;
 	chatVisible: boolean;
 	toggleChat(): void;
 	showChat(): void;
 	hideChat(): void;
 	repositionChat(): void;
+	showSettings(): void;
+	hideSettings(): void;
+	toggleSettings(): void;
 	hideAll(): void;
 	showAvatar(): void;
 	sendAgentState(state: AgentState): void;
 	sendToAvatar(channel: string, ...args: unknown[]): void;
 	sendToChat(channel: string, ...args: unknown[]): void;
+	sendToSettings(channel: string, ...args: unknown[]): void;
 	destroyAll(): void;
 }
 
@@ -83,10 +91,37 @@ function createChatWindow(): BrowserWindow {
 	return chatWin;
 }
 
+function createSettingsWindow(): BrowserWindow {
+	const settingsWin = new BrowserWindow({
+		width: SETTINGS_WINDOW_WIDTH,
+		height: SETTINGS_WINDOW_HEIGHT,
+		transparent: false,
+		frame: false,
+		alwaysOnTop: false,
+		skipTaskbar: false,
+		resizable: true,
+		minWidth: 320,
+		minHeight: 400,
+		show: false,
+		webPreferences: {
+			contextIsolation: true,
+			nodeIntegration: false,
+			preload: path.join(__dirname, "..", "..", "settings-preload.cjs"),
+		},
+	});
+
+	settingsWin.loadFile(
+		path.join(__dirname, "..", "..", "settings-renderer-bundle", "settings-index.html"),
+	);
+
+	return settingsWin;
+}
+
 export function createWindowManager(): WindowManager {
 	const avatarWin = createOverlayWindow();
 	let chatWin = createChatWindow();
 	let chatVisible = false;
+	let settingsWin: BrowserWindow | null = null;
 
 	// Handle chat window being closed externally
 	chatWin.on("closed", () => {
@@ -126,8 +161,49 @@ export function createWindowManager(): WindowManager {
 		}
 	}
 
+	function showSettings(): void {
+		if (avatarWin.isDestroyed()) return;
+		if (!settingsWin || settingsWin.isDestroyed()) {
+			settingsWin = createSettingsWindow();
+			setSettingsBroadcastTarget(settingsWin);
+			settingsWin.on("closed", () => {
+				settingsWin = null;
+				setSettingsBroadcastTarget(null);
+			});
+		}
+		const [ax, ay] = avatarWin.getPosition();
+		const pos = clampBoundsToWorkArea(
+			ax - SETTINGS_WINDOW_WIDTH - 12,
+			ay,
+			SETTINGS_WINDOW_WIDTH,
+			SETTINGS_WINDOW_HEIGHT,
+		);
+		settingsWin.setPosition(pos.x, pos.y);
+		settingsWin.show();
+		settingsWin.focus();
+	}
+
+	function hideSettings(): void {
+		if (settingsWin && !settingsWin.isDestroyed()) settingsWin.hide();
+	}
+
+	function toggleSettings(): void {
+		if (settingsWin && !settingsWin.isDestroyed() && settingsWin.isVisible()) {
+			hideSettings();
+		} else {
+			showSettings();
+		}
+	}
+
+	function sendToSettings(channel: string, ...args: unknown[]): void {
+		if (settingsWin && !settingsWin.isDestroyed()) {
+			settingsWin.webContents.send(channel, ...args);
+		}
+	}
+
 	function hideAll(): void {
 		hideChat();
+		hideSettings();
 		avatarWin.hide();
 	}
 
@@ -159,6 +235,7 @@ export function createWindowManager(): WindowManager {
 	}
 
 	function destroyAll(): void {
+		if (settingsWin && !settingsWin.isDestroyed()) settingsWin.destroy();
 		if (!chatWin.isDestroyed()) chatWin.destroy();
 		if (!avatarWin.isDestroyed()) avatarWin.destroy();
 	}
@@ -189,19 +266,33 @@ export function createWindowManager(): WindowManager {
 		if (!chatVisible) showChat();
 	});
 
+	// Settings window open/close from renderer
+	ipcMain.on(IPC.OPEN_SETTINGS, () => {
+		showSettings();
+	});
+
+	ipcMain.on(IPC.CLOSE_SETTINGS, () => {
+		hideSettings();
+	});
+
 	return {
 		get avatarWin() { return avatarWin; },
 		get chatWin() { return chatWin; },
+		get settingsWin() { return settingsWin; },
 		get chatVisible() { return chatVisible; },
 		toggleChat,
 		showChat,
 		hideChat,
 		repositionChat,
+		showSettings,
+		hideSettings,
+		toggleSettings,
 		hideAll,
 		showAvatar,
 		sendAgentState,
 		sendToAvatar,
 		sendToChat,
+		sendToSettings,
 		destroyAll,
 	};
 }

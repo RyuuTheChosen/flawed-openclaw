@@ -61,4 +61,21 @@ export const IPC = {
 
 	// Snap position
 	SNAP_TO: "avatar:snap-to",
+
+	// Settings window
+	OPEN_SETTINGS: "settings:open",
+	CLOSE_SETTINGS: "settings:close",
+	PICK_VRM_FILE: "settings:pick-vrm-file",
+
+	// Scale
+	GET_SCALE: "avatar:get-scale",
+	SET_SCALE: "avatar:set-scale",
+	SCALE_CHANGED: "avatar:scale-changed",
+
+	// Lighting
+	GET_LIGHTING_PROFILE: "avatar:get-lighting-profile",
+	SET_LIGHTING_PROFILE: "avatar:set-lighting-profile",
+	LIGHTING_PROFILE_CHANGED: "avatar:lighting-profile-changed",
+	SET_LIGHTING_CUSTOM: "avatar:set-lighting-custom",
+	LIGHTING_CUSTOM_CHANGED: "avatar:lighting-custom-changed",
 } as const;

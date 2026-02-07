@@ -33,6 +33,12 @@ export function createTray(wm: WindowManager): Tray {
 					showVrmPicker(wm.avatarWin);
 				},
 			},
+			{
+				label: "Settings\u2026",
+				click() {
+					wm.showSettings();
+				},
+			},
 			{ type: "separator" },
 			{
 				label: "Quit",

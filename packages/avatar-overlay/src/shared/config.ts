@@ -114,6 +114,20 @@ export const PIXEL_SAMPLE_RADIUS = 25;
 export const PIXEL_ALPHA_THRESHOLD = 10;
 export const PIXEL_SAMPLE_THROTTLE_MS = 33;
 
+// === Settings Window ===
+export const SETTINGS_WINDOW_WIDTH = 380;
+export const SETTINGS_WINDOW_HEIGHT = 560;
+
+// === Scale Settings ===
+export const SCALE_MIN = 0.5;
+export const SCALE_MAX = 2.0;
+export const SCALE_DEFAULT = 1.0;
+export const SCALE_STEP = 0.1;
+
+// === Lighting Settings ===
+export const LIGHTING_PROFILES = ["studio", "warm", "cool", "neutral", "custom"] as const;
+export const LIGHTING_PROFILE_DEFAULT = "studio";
+
 // === TTS Settings ===
 export const TTS_ENABLED_DEFAULT = false;
 export const TTS_RATE_DEFAULT = 1.0;

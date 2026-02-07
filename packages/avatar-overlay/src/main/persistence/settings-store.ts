@@ -11,12 +11,17 @@ import {
 	TTS_ENABLED_DEFAULT,
 	TTS_ENGINE_DEFAULT,
 	TTS_VOICE_DEFAULT,
+	SCALE_MIN,
+	SCALE_MAX,
+	SCALE_DEFAULT,
+	LIGHTING_PROFILE_DEFAULT,
 } from "../../shared/config.js";
 import { createFileStore, type FileStore } from "./file-store.js";
 import {
 	SettingsSchema,
 	createDefaultSettings,
 	type Settings,
+	type LightingCustom,
 } from "./types.js";
 import { computeDisplayHash } from "../display-utils.js";
 
@@ -163,6 +168,41 @@ export function saveVrmModelPath(path: string): void {
 export function getVrmModelPath(): string | undefined {
 	const settings = getStore().getCache() ?? loadSettings();
 	return settings.vrmModelPath;
+}
+
+export function saveScale(scale: number): void {
+	if (!Number.isFinite(scale)) return;
+	const clamped = Math.max(SCALE_MIN, Math.min(SCALE_MAX, scale));
+	const current = getStore().getCache() ?? loadSettings();
+	const updated: Settings = { ...current, scale: clamped };
+	getStore().save(updated);
+}
+
+export function getScale(): number {
+	const settings = getStore().getCache() ?? loadSettings();
+	return settings.scale ?? SCALE_DEFAULT;
+}
+
+export function saveLightingProfile(profile: string): void {
+	const current = getStore().getCache() ?? loadSettings();
+	const updated: Settings = { ...current, lightingProfile: profile };
+	getStore().save(updated);
+}
+
+export function getLightingProfile(): string {
+	const settings = getStore().getCache() ?? loadSettings();
+	return settings.lightingProfile ?? LIGHTING_PROFILE_DEFAULT;
+}
+
+export function saveLightingCustom(custom: LightingCustom): void {
+	const current = getStore().getCache() ?? loadSettings();
+	const updated: Settings = { ...current, lightingCustom: custom };
+	getStore().save(updated);
+}
+
+export function getLightingCustom(): LightingCustom | undefined {
+	const settings = getStore().getCache() ?? loadSettings();
+	return settings.lightingCustom;
 }
 
 export async function flushSettings(): Promise<void> {

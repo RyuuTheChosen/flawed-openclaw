@@ -46,6 +46,11 @@ const IPC = {
 	CURSOR_POSITION: "avatar:cursor-position",
 	START_CURSOR_TRACKING: "avatar:start-cursor-tracking",
 	STOP_CURSOR_TRACKING: "avatar:stop-cursor-tracking",
+	// Settings window
+	OPEN_SETTINGS: "settings:open",
+	// Scale
+	SCALE_CHANGED: "avatar:scale-changed",
+	GET_SCALE: "avatar:get-scale",
 };
 
 contextBridge.exposeInMainWorld("avatarBridge", {
@@ -214,6 +219,22 @@ contextBridge.exposeInMainWorld("avatarBridge", {
 		ipcRenderer.removeAllListeners(IPC.TTS_VOICE_CHANGED);
 		ipcRenderer.on(IPC.TTS_VOICE_CHANGED, (_event, voice) => {
 			callback(voice);
+		});
+	},
+
+	openSettings() {
+		ipcRenderer.send(IPC.OPEN_SETTINGS);
+	},
+
+	// Scale
+	getScale() {
+		return ipcRenderer.invoke(IPC.GET_SCALE);
+	},
+
+	onScaleChanged(callback) {
+		ipcRenderer.removeAllListeners(IPC.SCALE_CHANGED);
+		ipcRenderer.on(IPC.SCALE_CHANGED, (_event, scale) => {
+			callback(scale);
 		});
 	},
 

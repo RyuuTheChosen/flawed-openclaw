@@ -48,3 +48,24 @@ cpSync(
 	join(root, "src", "main", "chat-preload.cjs"),
 	join(root, "dist", "chat-preload.cjs"),
 );
+
+// Settings window
+const settingsRendererDest = join(root, "dist", "settings-renderer-bundle");
+const settingsStylesDest = join(settingsRendererDest, "styles");
+mkdirSync(settingsRendererDest, { recursive: true });
+mkdirSync(settingsStylesDest, { recursive: true });
+cpSync(
+	join(root, "src", "renderer", "settings-window", "settings-index.html"),
+	join(settingsRendererDest, "settings-index.html"),
+);
+cpSync(
+	join(root, "src", "renderer", "styles"),
+	settingsStylesDest,
+	{ recursive: true },
+);
+
+// Copy settings-preload.cjs to dist/
+cpSync(
+	join(root, "src", "main", "settings-preload.cjs"),
+	join(root, "dist", "settings-preload.cjs"),
+);

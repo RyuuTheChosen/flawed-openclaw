@@ -88,6 +88,9 @@ async function boot(): Promise<void> {
 	// Initialize spring bone controller
 	springBones = createSpringBoneController();
 
+	// Track current scale for re-applying on model swap
+	let currentScale = 1.0;
+
 	// Model swap from tray or gateway agent switch
 	bridge.onVrmModelChanged(async (newPath: string) => {
 		if (currentVrm) unloadVrmModel(currentVrm, scene);
@@ -104,6 +107,7 @@ async function boot(): Promise<void> {
 		}
 		if (animator) animator.setVrm(currentVrm);
 		iblEnhancer?.enhanceVrm(currentVrm);
+		if (currentVrm) currentVrm.scene.scale.setScalar(currentScale);
 	});
 
 	// Load default VRM
@@ -138,6 +142,21 @@ async function boot(): Promise<void> {
 	// Restore persisted camera zoom before first frame
 	let currentZoom = await bridge.getCameraZoom();
 	currentZoom = setCameraZoom(currentZoom);
+
+	// Restore persisted scale
+	function applyScale(scale: number): void {
+		currentScale = scale;
+		if (currentVrm) {
+			currentVrm.scene.scale.setScalar(scale);
+		}
+	}
+
+	const initialScale = await bridge.getScale();
+	applyScale(initialScale);
+
+	bridge.onScaleChanged((scale: number) => {
+		applyScale(scale);
+	});
 
 	// Click-through via pixel sampling: ignore mouse when cursor is over transparent pixels
 	const gl = renderer.getContext() as WebGLRenderingContext;
@@ -231,9 +250,9 @@ async function boot(): Promise<void> {
 		bridge.saveCameraZoom(currentZoom);
 	});
 
-	// Settings button → context menu
+	// Settings button → open settings window
 	settingsBtn.addEventListener("click", () => {
-		bridge.showContextMenu();
+		bridge.openSettings();
 	});
 
 	// Chat toggle button → toggle chat window via main process

@@ -11,10 +11,23 @@ import {
 	TTS_ENABLED_DEFAULT,
 	TTS_ENGINE_DEFAULT,
 	TTS_VOICE_DEFAULT,
+	SCALE_MIN,
+	SCALE_MAX,
+	SCALE_DEFAULT,
+	LIGHTING_PROFILE_DEFAULT,
 } from "../../shared/config.js";
 
-export const SETTINGS_SCHEMA_VERSION = 2;
+export const SETTINGS_SCHEMA_VERSION = 3;
 export const CHAT_SCHEMA_VERSION = 1;
+
+// === Lighting Custom Schema ===
+export const LightingCustomSchema = z.object({
+	intensity: z.number().min(0).max(2).default(0.3),
+	color: z.string().default("#ffffff"),
+	ambient: z.number().min(0).max(1).default(0.5),
+});
+
+export type LightingCustom = z.infer<typeof LightingCustomSchema>;
 
 // === Settings Schema ===
 export const SettingsSchema = z.object({
@@ -39,6 +52,9 @@ export const SettingsSchema = z.object({
 	ttsEngine: z.enum(["web-speech", "kokoro"]).default(TTS_ENGINE_DEFAULT),
 	ttsVoice: z.string().default(TTS_VOICE_DEFAULT),
 	vrmModelPath: z.string().optional(),
+	scale: z.number().min(SCALE_MIN).max(SCALE_MAX).default(SCALE_DEFAULT),
+	lightingProfile: z.string().default(LIGHTING_PROFILE_DEFAULT),
+	lightingCustom: LightingCustomSchema.optional(),
 });
 
 export type Settings = z.infer<typeof SettingsSchema>;
@@ -77,6 +93,8 @@ export function createDefaultSettings(): Settings {
 		ttsEnabled: TTS_ENABLED_DEFAULT,
 		ttsEngine: TTS_ENGINE_DEFAULT,
 		ttsVoice: TTS_VOICE_DEFAULT,
+		scale: SCALE_DEFAULT,
+		lightingProfile: LIGHTING_PROFILE_DEFAULT,
 	};
 }
 

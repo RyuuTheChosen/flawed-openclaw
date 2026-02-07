@@ -5,6 +5,8 @@ import {
 	CAMERA_ZOOM_FILE,
 	CAMERA_ZOOM_MIN,
 	CAMERA_ZOOM_MAX,
+	SCALE_DEFAULT,
+	LIGHTING_PROFILE_DEFAULT,
 } from "../../shared/config.js";
 import { getOpenclawDir } from "./file-store.js";
 import {
@@ -158,12 +160,46 @@ export function migrateV1ToV2(): void {
 		raw.position = { [hash]: { x: oldPos.x, y: oldPos.y } };
 	}
 
-	raw.schemaVersion = SETTINGS_SCHEMA_VERSION;
+	raw.schemaVersion = 2;
 
 	try {
 		fs.writeFileSync(filePath, JSON.stringify(raw, null, "\t"));
 		console.log("[migrations] Schema upgraded to v2");
 	} catch (err) {
 		console.warn("[migrations] Failed to write v2 migration:", err);
+	}
+}
+
+/**
+ * Migrates settings from schema v2 to v3.
+ * Adds `scale` and `lightingProfile` fields with defaults.
+ */
+export function migrateV2ToV3(): void {
+	const filePath = path.join(getOpenclawDir(), "avatar-overlay-settings.json");
+	let raw: Record<string, unknown>;
+	try {
+		raw = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+	} catch {
+		return; // No settings file yet
+	}
+
+	// Already at v3 or newer
+	if (typeof raw.schemaVersion === "number" && raw.schemaVersion >= 3) return;
+
+	// Add defaults for new fields
+	if (raw.scale === undefined) {
+		raw.scale = SCALE_DEFAULT;
+	}
+	if (raw.lightingProfile === undefined) {
+		raw.lightingProfile = LIGHTING_PROFILE_DEFAULT;
+	}
+
+	raw.schemaVersion = SETTINGS_SCHEMA_VERSION;
+
+	try {
+		fs.writeFileSync(filePath, JSON.stringify(raw, null, "\t"));
+		console.log("[migrations] Schema upgraded to v3");
+	} catch (err) {
+		console.warn("[migrations] Failed to write v3 migration:", err);
 	}
 }

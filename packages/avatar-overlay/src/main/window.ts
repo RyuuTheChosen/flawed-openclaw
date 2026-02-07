@@ -10,6 +10,8 @@ import {
 	IDLE_TIMEOUT_OPTIONS,
 	OPACITY_MIN,
 	OPACITY_MAX,
+	SCALE_MIN,
+	SCALE_MAX,
 } from "../shared/config.js";
 import { IPC } from "../shared/ipc-channels.js";
 import {
@@ -22,6 +24,9 @@ import {
 	saveTtsEngine,
 	saveTtsVoice,
 	saveVrmModelPath,
+	saveScale,
+	saveLightingProfile,
+	saveLightingCustom,
 	getPosition,
 	getZoom,
 	getOpacity,
@@ -29,15 +34,22 @@ import {
 	getTtsEnabled,
 	getTtsEngine,
 	getTtsVoice,
+	getVrmModelPath,
+	getScale,
+	getLightingProfile,
+	getLightingCustom,
 	cleanupSettings,
 	migrateLegacyFiles,
 	migrateV1ToV2,
+	migrateV2ToV3,
 	getChatHistory,
 	appendMessage,
 	clearChatHistory,
 	cleanupChat,
 	type ChatMessage,
+	type LightingCustom,
 } from "./persistence/index.js";
+import { broadcastToSettings } from "./settings-broadcast.js";
 import { clampBoundsToWorkArea } from "./display-utils.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -74,7 +86,7 @@ function getSnapPosition(corner: "bottomRight" | "bottomLeft" | "topRight" | "to
 	}
 }
 
-export async function showVrmPicker(win: BrowserWindow): Promise<void> {
+export async function showVrmPicker(win: BrowserWindow): Promise<string | null> {
 	const modelsDir = path.join(__dirname, "..", "..", "..", "assets", "models");
 	const result = await dialog.showOpenDialog(win, {
 		title: "Select VRM Model",
@@ -84,9 +96,12 @@ export async function showVrmPicker(win: BrowserWindow): Promise<void> {
 	});
 	if (!result.canceled && result.filePaths.length > 0) {
 		const selectedPath = result.filePaths[0];
-		saveVrmModelPath(selectedPath); // Persist selection
+		saveVrmModelPath(selectedPath);
 		win.webContents.send(IPC.VRM_MODEL_CHANGED, selectedPath);
+		broadcastToSettings(IPC.VRM_MODEL_CHANGED, selectedPath);
+		return selectedPath;
 	}
+	return null;
 }
 
 export function createOverlayWindow(): BrowserWindow {
@@ -95,6 +110,7 @@ export function createOverlayWindow(): BrowserWindow {
 		migrationsDone = true;
 		migrateLegacyFiles();
 		migrateV1ToV2();
+		migrateV2ToV3();
 	}
 
 	// Load persisted settings
@@ -152,13 +168,15 @@ export function createOverlayWindow(): BrowserWindow {
 		IPC.SET_IDLE_TIMEOUT, IPC.SET_OPACITY, IPC.SET_TTS_ENABLED,
 		IPC.SET_TTS_ENGINE, IPC.SET_TTS_VOICE, IPC.START_CURSOR_TRACKING,
 		IPC.STOP_CURSOR_TRACKING, IPC.SNAP_TO,
+		IPC.SET_SCALE, IPC.SET_LIGHTING_PROFILE, IPC.SET_LIGHTING_CUSTOM,
 	];
 	for (const ch of listenChannels) ipcMain.removeAllListeners(ch);
 
 	const handleChannels = [
 		IPC.GET_CAMERA_ZOOM, IPC.GET_SETTINGS, IPC.GET_CHAT_HISTORY,
 		IPC.GET_IDLE_TIMEOUT, IPC.GET_TTS_ENABLED, IPC.GET_TTS_ENGINE,
-		IPC.GET_TTS_VOICE,
+		IPC.GET_TTS_VOICE, IPC.GET_SCALE, IPC.GET_LIGHTING_PROFILE,
+		IPC.PICK_VRM_FILE,
 	];
 	for (const ch of handleChannels) ipcMain.removeHandler(ch);
 
@@ -199,10 +217,17 @@ export function createOverlayWindow(): BrowserWindow {
 		return getZoom();
 	});
 
-	ipcMain.on(IPC.SAVE_CAMERA_ZOOM, (_event, zoom: unknown) => {
+	ipcMain.on(IPC.SAVE_CAMERA_ZOOM, (event, zoom: unknown) => {
 		if (typeof zoom === "number" && Number.isFinite(zoom)) {
 			const clamped = Math.max(CAMERA_ZOOM_MIN, Math.min(CAMERA_ZOOM_MAX, zoom));
 			saveZoom(clamped);
+			// If the event came from a window other than the avatar (e.g. settings),
+			// relay to the avatar renderer so the camera updates live.
+			const senderId = event.sender.id;
+			if (senderId !== win.webContents.id) {
+				win.webContents.send(IPC.SET_CAMERA_ZOOM, clamped);
+			}
+			broadcastToSettings(IPC.SET_CAMERA_ZOOM, clamped);
 		}
 	});
 
@@ -213,6 +238,13 @@ export function createOverlayWindow(): BrowserWindow {
 			idleTimeoutMs: getIdleTimeout(),
 			zoom: getZoom(),
 			position: getPosition(),
+			scale: getScale(),
+			ttsEnabled: getTtsEnabled(),
+			ttsEngine: getTtsEngine(),
+			ttsVoice: getTtsVoice(),
+			lightingProfile: getLightingProfile(),
+			lightingCustom: getLightingCustom(),
+			vrmModelPath: getVrmModelPath(),
 		};
 	});
 
@@ -242,6 +274,7 @@ export function createOverlayWindow(): BrowserWindow {
 		if (typeof ms !== "number" || !Number.isInteger(ms) || ms < 0) return;
 		saveIdleTimeout(ms);
 		win.webContents.send(IPC.IDLE_TIMEOUT_CHANGED, ms);
+		broadcastToSettings(IPC.IDLE_TIMEOUT_CHANGED, ms);
 	});
 
 	// IPC: opacity
@@ -251,6 +284,7 @@ export function createOverlayWindow(): BrowserWindow {
 		saveOpacity(clamped);
 		win.setOpacity(clamped);
 		win.webContents.send(IPC.OPACITY_CHANGED, clamped);
+		broadcastToSettings(IPC.OPACITY_CHANGED, clamped);
 	});
 
 	// IPC: TTS enabled
@@ -262,6 +296,7 @@ export function createOverlayWindow(): BrowserWindow {
 		if (typeof enabled !== "boolean") return;
 		saveTtsEnabled(enabled);
 		win.webContents.send(IPC.TTS_ENABLED_CHANGED, enabled);
+		broadcastToSettings(IPC.TTS_ENABLED_CHANGED, enabled);
 	});
 
 	// IPC: TTS engine
@@ -273,6 +308,7 @@ export function createOverlayWindow(): BrowserWindow {
 		if (engine !== "web-speech" && engine !== "kokoro") return;
 		saveTtsEngine(engine);
 		win.webContents.send(IPC.TTS_ENGINE_CHANGED, engine);
+		broadcastToSettings(IPC.TTS_ENGINE_CHANGED, engine);
 	});
 
 	// IPC: TTS voice
@@ -284,11 +320,56 @@ export function createOverlayWindow(): BrowserWindow {
 		if (typeof voice !== "string") return;
 		saveTtsVoice(voice);
 		win.webContents.send(IPC.TTS_VOICE_CHANGED, voice);
+		broadcastToSettings(IPC.TTS_VOICE_CHANGED, voice);
+	});
+
+	// IPC: scale
+	ipcMain.handle(IPC.GET_SCALE, () => {
+		return getScale();
+	});
+
+	ipcMain.on(IPC.SET_SCALE, (_event, scale: unknown) => {
+		if (typeof scale !== "number" || !Number.isFinite(scale)) return;
+		const clamped = Math.max(SCALE_MIN, Math.min(SCALE_MAX, scale));
+		saveScale(clamped);
+		win.webContents.send(IPC.SCALE_CHANGED, clamped);
+		broadcastToSettings(IPC.SCALE_CHANGED, clamped);
+	});
+
+	// IPC: lighting profile
+	ipcMain.handle(IPC.GET_LIGHTING_PROFILE, () => {
+		return getLightingProfile();
+	});
+
+	ipcMain.on(IPC.SET_LIGHTING_PROFILE, (_event, profile: unknown) => {
+		if (typeof profile !== "string") return;
+		saveLightingProfile(profile);
+		win.webContents.send(IPC.LIGHTING_PROFILE_CHANGED, profile);
+		broadcastToSettings(IPC.LIGHTING_PROFILE_CHANGED, profile);
+	});
+
+	// IPC: lighting custom
+	ipcMain.on(IPC.SET_LIGHTING_CUSTOM, (_event, custom: unknown) => {
+		if (!custom || typeof custom !== "object") return;
+		const c = custom as Record<string, unknown>;
+		if (typeof c.intensity !== "number" || !Number.isFinite(c.intensity) || c.intensity < 0 || c.intensity > 2) return;
+		if (typeof c.color !== "string") return;
+		if (typeof c.ambient !== "number" || !Number.isFinite(c.ambient) || c.ambient < 0 || c.ambient > 1) return;
+		const validated: LightingCustom = { intensity: c.intensity, color: c.color, ambient: c.ambient };
+		saveLightingCustom(validated);
+		win.webContents.send(IPC.LIGHTING_CUSTOM_CHANGED, validated);
+		broadcastToSettings(IPC.LIGHTING_CUSTOM_CHANGED, validated);
+	});
+
+	// IPC: pick VRM file from settings window
+	ipcMain.handle(IPC.PICK_VRM_FILE, () => {
+		return showVrmPicker(win);
 	});
 
 	// Helper functions for context menu actions
 	function setZoom(zoom: number): void {
 		win.webContents.send(IPC.SET_CAMERA_ZOOM, zoom);
+		broadcastToSettings(IPC.SET_CAMERA_ZOOM, zoom);
 	}
 
 	function setOpacity(opacity: number): void {
@@ -296,6 +377,7 @@ export function createOverlayWindow(): BrowserWindow {
 		saveOpacity(clamped);
 		win.setOpacity(clamped);
 		win.webContents.send(IPC.OPACITY_CHANGED, clamped);
+		broadcastToSettings(IPC.OPACITY_CHANGED, clamped);
 	}
 
 	function snapTo(corner: "bottomRight" | "bottomLeft" | "topRight" | "topLeft"): void {
@@ -307,6 +389,7 @@ export function createOverlayWindow(): BrowserWindow {
 	function setIdleTimeoutMenu(ms: number): void {
 		saveIdleTimeout(ms);
 		win.webContents.send(IPC.IDLE_TIMEOUT_CHANGED, ms);
+		broadcastToSettings(IPC.IDLE_TIMEOUT_CHANGED, ms);
 	}
 
 	function clearChat(): void {
@@ -318,6 +401,7 @@ export function createOverlayWindow(): BrowserWindow {
 	function setTtsEngine(engine: "web-speech" | "kokoro"): void {
 		saveTtsEngine(engine);
 		win.webContents.send(IPC.TTS_ENGINE_CHANGED, engine);
+		broadcastToSettings(IPC.TTS_ENGINE_CHANGED, engine);
 	}
 
 	// IPC: cursor tracking for eye gaze

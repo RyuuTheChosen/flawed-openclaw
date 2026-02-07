@@ -6,10 +6,13 @@ export type {
 	LoadResult,
 } from "./types.js";
 
+export type { LightingCustom } from "./types.js";
+
 export {
 	SETTINGS_SCHEMA_VERSION,
 	CHAT_SCHEMA_VERSION,
 	SettingsSchema,
+	LightingCustomSchema,
 	ChatMessageSchema,
 	ChatHistorySchema,
 	createDefaultSettings,
@@ -40,6 +43,12 @@ export {
 	getTtsEngine,
 	getTtsVoice,
 	getVrmModelPath,
+	saveScale,
+	getScale,
+	saveLightingProfile,
+	getLightingProfile,
+	saveLightingCustom,
+	getLightingCustom,
 	flushSettings,
 	cleanupSettings,
 	getSettingsStore,
@@ -57,4 +66,4 @@ export {
 } from "./chat-store.js";
 
 // Migrations
-export { migrateLegacyFiles, migrateV1ToV2 } from "./migrations.js";
+export { migrateLegacyFiles, migrateV1ToV2, migrateV2ToV3 } from "./migrations.js";
